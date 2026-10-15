@@ -238,6 +238,11 @@ impl PythonDebugger {
         self.state = DebuggerState::Running;
     }
 
+    /// Terminate debug session
+    pub fn terminate(&mut self) {
+        self.state = DebuggerState::Terminated;
+    }
+
     /// Get current stack frames
     pub fn get_stack_frames(&self) -> &[StackFrame] {
         &self.stack_frames
