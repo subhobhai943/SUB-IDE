@@ -5,5 +5,6 @@ edition = "2024"
 description = "SUB-IDE: High-Performance Next-Gen IDE for Python & SUB Ecosystem (Clean-room Rust reconstruction of PyCharm Pro)"
 
 [dependencies]
+eframe = "0.31.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

@@ -13,6 +13,7 @@ pub mod sdk;
 pub mod search_everywhere;
 pub mod stub_index;
 pub mod vcs_git;
+pub mod desktop_gui;
 pub mod vfs;
 pub mod workbench;
 
@@ -36,6 +37,23 @@ use workbench::{ToolWindowTab, WorkbenchRenderer};
 use std::path::{Path, PathBuf};
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let has_display = std::env::var("DISPLAY").is_ok();
+    let is_cli_mode = args.iter().any(|a| a == "--cli" || a == "--headless" || a == "--test-run");
+
+    // Launch Native Desktop GUI if running in X11 / Wayland environment unless CLI is explicitly requested
+    if (has_display && !is_cli_mode) || args.iter().any(|a| a == "--gui") {
+        println!("============================================================");
+        println!("  SUB-IDE (Pro Edition): Launching Native Desktop GUI Window  ");
+        println!("  Running on X11 Display: {:?}", std::env::var("DISPLAY").unwrap_or_default());
+        println!("============================================================\n");
+        if let Err(e) = desktop_gui::run_desktop_gui() {
+            eprintln!("Failed to launch desktop GUI: {}. Falling back to CLI mode.", e);
+        } else {
+            return;
+        }
+    }
+
     println!("╔════════════════════════════════════════════════════════════════════════════════════════════════════╗");
     println!("║                           SUB-IDE (Pro Edition) - SUB Ecosystem                                    ║");
     println!("║              Next-Gen Pure Rust IDE Architecture Reconstructed from PyCharm via REA                ║");
