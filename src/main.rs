@@ -14,6 +14,7 @@ pub mod search_everywhere;
 pub mod stub_index;
 pub mod vcs_git;
 pub mod vfs;
+pub mod workbench;
 
 use buffer::EditorBuffer;
 use dap::{DebuggerState, PythonDebugger};
@@ -30,14 +31,27 @@ use search_everywhere::{SearchEverywhere, SearchTab};
 use stub_index::StubIndex;
 use vcs_git::GitRepository;
 use vfs::VirtualFileSystem;
+use workbench::{ToolWindowTab, WorkbenchRenderer};
 
 use std::path::{Path, PathBuf};
 
 fn main() {
-    println!("============================================================");
-    println!("  PyCharm-RS: Pure Rust IDE with Full Pro Capabilities      ");
-    println!("  Reverse-Engineered with REA (Ghidra, Rust auditable)      ");
-    println!("============================================================\n");
+    println!("╔════════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    println!("║                           SUB-IDE (Pro Edition) - SUB Ecosystem                                    ║");
+    println!("║              Next-Gen Pure Rust IDE Architecture Reconstructed from PyCharm via REA                ║");
+    println!("╚════════════════════════════════════════════════════════════════════════════════════════════════════╝\n");
+
+    println!("─── [LIVE VISUAL IDE INTERFACE VIEW: DEBUGGER (DAP) ACTIVE] ──────────────────────────────────────────\n");
+    let visual_screen_dbg = WorkbenchRenderer::render_screen(ToolWindowTab::Debug);
+    println!("{}\n", visual_screen_dbg);
+
+    println!("─── [LIVE VISUAL IDE INTERFACE VIEW: DATA WRANGLER PRO TAB] ──────────────────────────────────────────\n");
+    let visual_screen_wrg = WorkbenchRenderer::render_screen(ToolWindowTab::DataWrangler);
+    println!("{}\n", visual_screen_wrg);
+
+    println!("======================================================================================================");
+    println!("                        SUB-IDE Core Subsystems & Real-Time Engines Verification                       ");
+    println!("======================================================================================================\n");
 
     // ---------------------------------------------------------
     // 1. Core VFS & fsnotifier Protocol
