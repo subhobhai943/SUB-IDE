@@ -1,0 +1,11 @@
+customer,age,purchase_amount,is_vip
+Alice,32,150.50,true
+Bob,24,45.00,false
+Charlie,45,320.00,true
+David,38,85.20,false
+Eve,29,195.00,true
+Frank,52,410.75,true
+Grace,21,35.50,false
+Heidi,34,220.00,true
+Ivan,41,180.25,true
+Judy,27,95.00,false
