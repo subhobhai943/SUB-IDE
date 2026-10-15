@@ -6,6 +6,7 @@ pub mod django;
 pub mod docker;
 pub mod http_client;
 pub mod lexer;
+pub mod lsp;
 pub mod mcp;
 pub mod notebook;
 pub mod parser;

@@ -1,7 +1,7 @@
 [package]
 name = "sub-ide"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 description = "SUB-IDE: High-Performance Next-Gen IDE for Python & SUB Ecosystem (Clean-room Rust reconstruction of PyCharm Pro)"
 
 [dependencies]

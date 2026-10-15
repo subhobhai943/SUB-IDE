@@ -1,1 +1,9 @@
 /target
+*.db
+__pycache__/
+*.pyc
+*.log
+.idea/
+sub_ide_rust_exec*
+sub_ide_c_exec*
+sub_ide_cpp_exec*
