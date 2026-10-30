@@ -12,6 +12,7 @@ use eframe::egui::{self, Color32, FontId, TextFormat};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::config::IdeConfig;
 use crate::dap::PythonDebugger;
 use crate::data_wrangler::{DataFrame, FilterOp};
 use crate::database::{DatabaseDialect, DatabaseManager, DatabaseTable, QueryResult, TableColumn};
@@ -27,24 +28,40 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
     let font_id = FontId::monospace(13.5);
 
     // JetBrains Darcula Palette
-    let c_kw = Color32::from_rgb(204, 120, 50);          // #CC7832 Orange
-    let c_builtin = Color32::from_rgb(136, 136, 198);    // #8888C6 Purple/Blue
-    let c_str = Color32::from_rgb(106, 135, 89);          // #6A8759 Green
-    let c_num = Color32::from_rgb(104, 151, 187);         // #6897BB Cyan
-    let c_comment = Color32::from_rgb(128, 128, 128);     // #808080 Grey
-    let c_deco = Color32::from_rgb(187, 181, 41);         // #BBB529 Yellow-Gold
-    let c_self = Color32::from_rgb(148, 85, 141);         // #94558D Magenta
-    let c_fn = Color32::from_rgb(255, 198, 109);          // #FFC66D Yellow
-    let c_normal = Color32::from_rgb(169, 183, 198);      // #A9B7C6 Text
+    let c_kw = Color32::from_rgb(204, 120, 50); // #CC7832 Orange
+    let c_builtin = Color32::from_rgb(136, 136, 198); // #8888C6 Purple/Blue
+    let c_str = Color32::from_rgb(106, 135, 89); // #6A8759 Green
+    let c_num = Color32::from_rgb(104, 151, 187); // #6897BB Cyan
+    let c_comment = Color32::from_rgb(128, 128, 128); // #808080 Grey
+    let c_deco = Color32::from_rgb(187, 181, 41); // #BBB529 Yellow-Gold
+    let c_self = Color32::from_rgb(148, 85, 141); // #94558D Magenta
+    let c_fn = Color32::from_rgb(255, 198, 109); // #FFC66D Yellow
+    let c_normal = Color32::from_rgb(169, 183, 198); // #A9B7C6 Text
 
     for line in text.split_inclusive('\n') {
         let trimmed = line.trim_start();
         if (is_py && trimmed.starts_with('#')) || (is_rs && trimmed.starts_with("//")) {
-            job.append(line, 0.0, TextFormat { font_id: font_id.clone(), color: c_comment, ..Default::default() });
+            job.append(
+                line,
+                0.0,
+                TextFormat {
+                    font_id: font_id.clone(),
+                    color: c_comment,
+                    ..Default::default()
+                },
+            );
             continue;
         }
         if is_py && trimmed.starts_with('@') {
-            job.append(line, 0.0, TextFormat { font_id: font_id.clone(), color: c_deco, ..Default::default() });
+            job.append(
+                line,
+                0.0,
+                TextFormat {
+                    font_id: font_id.clone(),
+                    color: c_deco,
+                    ..Default::default()
+                },
+            );
             continue;
         }
 
@@ -54,17 +71,26 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
         while let Some(&(idx, ch)) = chars.peek() {
             if ch == '"' || ch == '\'' {
                 if idx > last_idx {
-                    job.append(&line[last_idx..idx], 0.0, TextFormat { font_id: font_id.clone(), color: c_normal, ..Default::default() });
+                    job.append(
+                        &line[last_idx..idx],
+                        0.0,
+                        TextFormat {
+                            font_id: font_id.clone(),
+                            color: c_normal,
+                            ..Default::default()
+                        },
+                    );
                 }
                 let quote = ch;
                 chars.next();
-                let is_triple = if line[idx..].starts_with("\"\"\"") || line[idx..].starts_with("'''") {
-                    chars.next();
-                    chars.next();
-                    true
-                } else {
-                    false
-                };
+                let is_triple =
+                    if line[idx..].starts_with("\"\"\"") || line[idx..].starts_with("'''") {
+                        chars.next();
+                        chars.next();
+                        true
+                    } else {
+                        false
+                    };
 
                 let mut end_idx = line.len();
                 while let Some(&(s_idx, s_ch)) = chars.peek() {
@@ -76,18 +102,36 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
                             end_idx = s_idx + 3;
                             break;
                         }
-                    } else if s_ch == quote && (s_idx == 0 || line.as_bytes().get(s_idx - 1) != Some(&b'\\')) {
+                    } else if s_ch == quote
+                        && (s_idx == 0 || line.as_bytes().get(s_idx - 1) != Some(&b'\\'))
+                    {
                         chars.next();
                         end_idx = s_idx + 1;
                         break;
                     }
                     chars.next();
                 }
-                job.append(&line[idx..end_idx], 0.0, TextFormat { font_id: font_id.clone(), color: c_str, ..Default::default() });
+                job.append(
+                    &line[idx..end_idx],
+                    0.0,
+                    TextFormat {
+                        font_id: font_id.clone(),
+                        color: c_str,
+                        ..Default::default()
+                    },
+                );
                 last_idx = end_idx;
             } else if ch.is_alphabetic() || ch == '_' {
                 if idx > last_idx {
-                    job.append(&line[last_idx..idx], 0.0, TextFormat { font_id: font_id.clone(), color: c_normal, ..Default::default() });
+                    job.append(
+                        &line[last_idx..idx],
+                        0.0,
+                        TextFormat {
+                            font_id: font_id.clone(),
+                            color: c_normal,
+                            ..Default::default()
+                        },
+                    );
                 }
                 let start_w = idx;
                 while let Some(&(_, w_ch)) = chars.peek() {
@@ -104,11 +148,12 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
                     match word {
                         "def" | "class" | "import" | "from" | "return" | "if" | "else" | "elif"
                         | "for" | "while" | "in" | "try" | "except" | "finally" | "with" | "as"
-                        | "yield" | "lambda" | "pass" | "break" | "continue" | "raise" | "assert"
-                        | "async" | "await" | "not" | "and" | "or" | "is" | "True" | "False" | "None" => c_kw,
+                        | "yield" | "lambda" | "pass" | "break" | "continue" | "raise"
+                        | "assert" | "async" | "await" | "not" | "and" | "or" | "is" | "True"
+                        | "False" | "None" => c_kw,
                         "print" | "len" | "range" | "str" | "int" | "float" | "bool" | "list"
-                        | "dict" | "set" | "tuple" | "super" | "type" | "isinstance" | "enumerate"
-                        | "zip" | "min" | "max" | "sum" | "open" => c_builtin,
+                        | "dict" | "set" | "tuple" | "super" | "type" | "isinstance"
+                        | "enumerate" | "zip" | "min" | "max" | "sum" | "open" => c_builtin,
                         "self" | "cls" => c_self,
                         _ => {
                             if line[end_w..].trim_start().starts_with('(') {
@@ -120,11 +165,13 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
                     }
                 } else if is_rs {
                     match word {
-                        "fn" | "let" | "mut" | "pub" | "struct" | "enum" | "impl" | "use" | "match"
-                        | "if" | "else" | "for" | "in" | "while" | "loop" | "return" | "break"
-                        | "continue" | "as" | "const" | "static" | "trait" | "type" | "where"
-                        | "mod" | "crate" | "super" | "self" | "true" | "false" => c_kw,
-                        "Some" | "None" | "Ok" | "Err" | "Vec" | "String" | "Option" | "Result" => c_builtin,
+                        "fn" | "let" | "mut" | "pub" | "struct" | "enum" | "impl" | "use"
+                        | "match" | "if" | "else" | "for" | "in" | "while" | "loop" | "return"
+                        | "break" | "continue" | "as" | "const" | "static" | "trait" | "type"
+                        | "where" | "mod" | "crate" | "super" | "self" | "true" | "false" => c_kw,
+                        "Some" | "None" | "Ok" | "Err" | "Vec" | "String" | "Option" | "Result" => {
+                            c_builtin
+                        }
                         _ => {
                             if line[end_w..].trim_start().starts_with('(') {
                                 c_fn
@@ -137,22 +184,58 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
                     c_normal
                 };
 
-                job.append(word, 0.0, TextFormat { font_id: font_id.clone(), color, ..Default::default() });
+                job.append(
+                    word,
+                    0.0,
+                    TextFormat {
+                        font_id: font_id.clone(),
+                        color,
+                        ..Default::default()
+                    },
+                );
                 last_idx = end_w;
-            } else if ch.is_ascii_digit() && (idx == 0 || !line.as_bytes().get(idx - 1).map(|b| b.is_ascii_alphabetic()).unwrap_or(false)) {
+            } else if ch.is_ascii_digit()
+                && (idx == 0
+                    || !line
+                        .as_bytes()
+                        .get(idx - 1)
+                        .map(|b| b.is_ascii_alphabetic())
+                        .unwrap_or(false))
+            {
                 if idx > last_idx {
-                    job.append(&line[last_idx..idx], 0.0, TextFormat { font_id: font_id.clone(), color: c_normal, ..Default::default() });
+                    job.append(
+                        &line[last_idx..idx],
+                        0.0,
+                        TextFormat {
+                            font_id: font_id.clone(),
+                            color: c_normal,
+                            ..Default::default()
+                        },
+                    );
                 }
                 let start_n = idx;
                 while let Some(&(_, n_ch)) = chars.peek() {
-                    if n_ch.is_ascii_digit() || n_ch == '.' || n_ch == 'x' || n_ch == 'X' || (n_ch >= 'a' && n_ch <= 'f') {
+                    if n_ch.is_ascii_digit()
+                        || n_ch == '.'
+                        || n_ch == 'x'
+                        || n_ch == 'X'
+                        || ('a'..='f').contains(&n_ch)
+                    {
                         chars.next();
                     } else {
                         break;
                     }
                 }
                 let end_n = chars.peek().map(|&(i, _)| i).unwrap_or(line.len());
-                job.append(&line[start_n..end_n], 0.0, TextFormat { font_id: font_id.clone(), color: c_num, ..Default::default() });
+                job.append(
+                    &line[start_n..end_n],
+                    0.0,
+                    TextFormat {
+                        font_id: font_id.clone(),
+                        color: c_num,
+                        ..Default::default()
+                    },
+                );
                 last_idx = end_n;
             } else {
                 chars.next();
@@ -160,7 +243,15 @@ pub fn highlight_code(ui: &egui::Ui, text: &str, file_name: &str) -> std::sync::
         }
 
         if last_idx < line.len() {
-            job.append(&line[last_idx..], 0.0, TextFormat { font_id: font_id.clone(), color: c_normal, ..Default::default() });
+            job.append(
+                &line[last_idx..],
+                0.0,
+                TextFormat {
+                    font_id: font_id.clone(),
+                    color: c_normal,
+                    ..Default::default()
+                },
+            );
         }
     }
 
@@ -215,11 +306,21 @@ impl FsEntry {
         let mut entries = Vec::new();
         if let Ok(read_dir) = std::fs::read_dir(dir) {
             let mut list: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
-            list.sort_by_key(|e| (!e.file_type().map(|t| t.is_dir()).unwrap_or(false), e.file_name()));
+            list.sort_by_key(|e| {
+                (
+                    !e.file_type().map(|t| t.is_dir()).unwrap_or(false),
+                    e.file_name(),
+                )
+            });
 
             for item in list {
                 let name = item.file_name().to_string_lossy().to_string();
-                if name.starts_with('.') || name == "target" || name == "__pycache__" || name == "node_modules" || name == ".git" {
+                if name.starts_with('.')
+                    || name == "target"
+                    || name == "__pycache__"
+                    || name == "node_modules"
+                    || name == ".git"
+                {
                     continue;
                 }
                 let path = item.path();
@@ -265,6 +366,9 @@ pub struct SubIdeApp {
     db_manager: DatabaseManager,
     search_engine: SearchEverywhere,
     git_repo: GitRepository,
+
+    // Settings
+    config: IdeConfig,
 
     // Bottom Dock State
     active_bottom_tab: BottomTab,
@@ -331,14 +435,30 @@ pub struct SubIdeApp {
 }
 
 impl SubIdeApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let config = IdeConfig::load();
+
         let cur = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let workspace = if cur.join("Cargo.toml").exists() || cur.join("models.py").exists() {
-            cur
-        } else {
-            let alt = PathBuf::from("/home/subhobhai943/Github/SUB-IDE");
-            if alt.exists() { alt } else { cur }
-        };
+        let workspace = config
+            .last_workspace
+            .clone()
+            .filter(|p| p.exists())
+            .unwrap_or_else(|| {
+                if cur.join("Cargo.toml").exists() || cur.join("models.py").exists() {
+                    cur
+                } else {
+                    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+                    let alt = home.join("Github").join("SUB-IDE");
+                    if alt.exists() {
+                        alt
+                    } else {
+                        cur
+                    }
+                }
+            });
+
+        // Apply persisted UI scale on startup
+        cc.egui_ctx.set_pixels_per_point(config.ui_scale);
 
         let mut tree = FsEntry::scan_dir(&workspace);
         for entry in &mut tree {
@@ -379,12 +499,17 @@ impl SubIdeApp {
         let mut debugger = PythonDebugger::new();
         debugger.initialize();
         debugger.set_breakpoints("models.py", &[13, 20]);
-        debugger.simulate_breakpoint_hit("models.py", 13, "get_display_name", vec![
-            ("self.username", "'subho_admin'", "str"),
-            ("self.email", "'subho@sub.org'", "str"),
-            ("name", "'subho_admin'", "str"),
-            ("rate", "3.14159", "float"),
-        ]);
+        debugger.simulate_breakpoint_hit(
+            "models.py",
+            13,
+            "get_display_name",
+            vec![
+                ("self.username", "'subho_admin'", "str"),
+                ("self.email", "'subho@sub.org'", "str"),
+                ("name", "'subho_admin'", "str"),
+                ("rate", "3.14159", "float"),
+            ],
+        );
 
         let mut bps_map = HashMap::new();
         bps_map.insert(sample_models_path.clone(), vec![13, 20]);
@@ -406,7 +531,8 @@ Alice,32,150.50,true
 Bob,24,45.00,false
 Charlie,45,320.00,true
 David,38,85.20,false
-Eve,29,195.00,true".to_string()
+Eve,29,195.00,true"
+                .to_string()
         };
         let df = DataFrame::from_csv(&sample_csv).ok();
 
@@ -425,9 +551,27 @@ Eve,29,195.00,true".to_string()
             schema: "main".to_string(),
             name: "blog_user".to_string(),
             columns: vec![
-                TableColumn { name: "id".to_string(), data_type: "INTEGER".to_string(), is_nullable: false, is_primary_key: true, default_value: None },
-                TableColumn { name: "username".to_string(), data_type: "VARCHAR(150)".to_string(), is_nullable: false, is_primary_key: false, default_value: None },
-                TableColumn { name: "email".to_string(), data_type: "VARCHAR(254)".to_string(), is_nullable: false, is_primary_key: false, default_value: None },
+                TableColumn {
+                    name: "id".to_string(),
+                    data_type: "INTEGER".to_string(),
+                    is_nullable: false,
+                    is_primary_key: true,
+                    default_value: None,
+                },
+                TableColumn {
+                    name: "username".to_string(),
+                    data_type: "VARCHAR(150)".to_string(),
+                    is_nullable: false,
+                    is_primary_key: false,
+                    default_value: None,
+                },
+                TableColumn {
+                    name: "email".to_string(),
+                    data_type: "VARCHAR(254)".to_string(),
+                    is_nullable: false,
+                    is_primary_key: false,
+                    default_value: None,
+                },
             ],
             estimated_rows: 50,
         });
@@ -435,10 +579,34 @@ Eve,29,195.00,true".to_string()
             schema: "main".to_string(),
             name: "blog_post".to_string(),
             columns: vec![
-                TableColumn { name: "id".to_string(), data_type: "INTEGER".to_string(), is_nullable: false, is_primary_key: true, default_value: None },
-                TableColumn { name: "user_id".to_string(), data_type: "INTEGER".to_string(), is_nullable: false, is_primary_key: false, default_value: None },
-                TableColumn { name: "title".to_string(), data_type: "VARCHAR(200)".to_string(), is_nullable: false, is_primary_key: false, default_value: None },
-                TableColumn { name: "body".to_string(), data_type: "TEXT".to_string(), is_nullable: false, is_primary_key: false, default_value: None },
+                TableColumn {
+                    name: "id".to_string(),
+                    data_type: "INTEGER".to_string(),
+                    is_nullable: false,
+                    is_primary_key: true,
+                    default_value: None,
+                },
+                TableColumn {
+                    name: "user_id".to_string(),
+                    data_type: "INTEGER".to_string(),
+                    is_nullable: false,
+                    is_primary_key: false,
+                    default_value: None,
+                },
+                TableColumn {
+                    name: "title".to_string(),
+                    data_type: "VARCHAR(200)".to_string(),
+                    is_nullable: false,
+                    is_primary_key: false,
+                    default_value: None,
+                },
+                TableColumn {
+                    name: "body".to_string(),
+                    data_type: "TEXT".to_string(),
+                    is_nullable: false,
+                    is_primary_key: false,
+                    default_value: None,
+                },
             ],
             estimated_rows: 120,
         });
@@ -457,7 +625,9 @@ Eve,29,195.00,true".to_string()
         search.add_file("Cargo.toml");
 
         let git = GitRepository::new(&workspace);
-        let branch = git.current_branch().unwrap_or_else(|_| "master".to_string());
+        let branch = git
+            .current_branch()
+            .unwrap_or_else(|_| "master".to_string());
 
         let nb_cells = vec![
             (
@@ -471,7 +641,10 @@ Eve,29,195.00,true".to_string()
         ];
 
         let term_out = vec![
-            format!("subhobhai943@sub-ide:{}$ echo 'Welcome to SUB-IDE Terminal (bash)'", workspace.display()),
+            format!(
+                "subhobhai943@sub-ide:{}$ echo 'Welcome to SUB-IDE Terminal (bash)'",
+                workspace.display()
+            ),
             "Welcome to SUB-IDE Terminal (bash)".to_string(),
             format!("subhobhai943@sub-ide:{}$ ls -la", workspace.display()),
             "drwxr-xr-x  src/".to_string(),
@@ -496,6 +669,7 @@ Eve,29,195.00,true".to_string()
             db_manager: db_mgr,
             search_engine: search,
             git_repo: git,
+            config,
             active_bottom_tab: BottomTab::RunConsole,
             show_right_pane: true,
             active_right_tab: RightTab::DatabaseExplorer,
@@ -549,9 +723,18 @@ Eve,29,195.00,true".to_string()
             self.workspace_dir = path.clone();
             self.file_tree = FsEntry::scan_dir(&self.workspace_dir);
             self.git_repo = GitRepository::new(&self.workspace_dir);
+            self.config.set_last_workspace(&path);
+            self.config.save();
             self.status_message = format!("Workspace switched to: {:?}", self.workspace_dir);
-            self.console_output.push(format!(">> [Workspace] Switched to {:?}", self.workspace_dir));
-            self.terminal_output.push(format!("subhobhai943@sub-ide:{}$ cd {:?}", self.workspace_dir.display(), self.workspace_dir));
+            self.console_output.push(format!(
+                ">> [Workspace] Switched to {:?}",
+                self.workspace_dir
+            ));
+            self.terminal_output.push(format!(
+                "subhobhai943@sub-ide:{}$ cd {:?}",
+                self.workspace_dir.display(),
+                self.workspace_dir
+            ));
         } else {
             self.status_message = format!("Not a valid directory: {:?}", path);
         }
@@ -562,12 +745,17 @@ Eve,29,195.00,true".to_string()
         if let Some(idx) = self.open_tabs.iter().position(|t| t.path == path) {
             self.active_tab_idx = idx;
             self.status_message = format!("Switched to {}", self.open_tabs[idx].file_name);
-            self.lsp_manager.run_diagnostics(&self.workspace_dir, &self.open_tabs[idx].path);
+            self.lsp_manager
+                .run_diagnostics(&self.workspace_dir, &self.open_tabs[idx].path);
             return;
         }
 
         if let Ok(content) = std::fs::read_to_string(&path) {
-            let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let file_name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
             self.open_tabs.push(OpenTab {
                 path: path.clone(),
                 file_name: file_name.clone(),
@@ -584,36 +772,50 @@ Eve,29,195.00,true".to_string()
 
     /// Save the currently active file tab to disk and re-run LSP diagnostics
     pub fn save_active_file(&mut self) {
-        if self.open_tabs.is_empty() { return; }
+        if self.open_tabs.is_empty() {
+            return;
+        }
         let tab = &mut self.open_tabs[self.active_tab_idx];
         if let Err(e) = std::fs::write(&tab.path, &tab.content) {
             self.status_message = format!("Error saving: {}", e);
         } else {
             tab.is_dirty = false;
             self.status_message = format!("Saved {}", tab.file_name);
-            self.console_output.push(format!(">> Saved file: {:?}", tab.path));
-            self.lsp_manager.run_diagnostics(&self.workspace_dir, &tab.path);
+            self.console_output
+                .push(format!(">> Saved file: {:?}", tab.path));
+            self.lsp_manager
+                .run_diagnostics(&self.workspace_dir, &tab.path);
         }
     }
 
     /// Multi-Language Runner reading the active file extension and using the required compiler / interpreter
     pub fn run_active_file(&mut self) {
-        if self.open_tabs.is_empty() { return; }
+        if self.open_tabs.is_empty() {
+            return;
+        }
         self.save_active_file();
         let tab = &self.open_tabs[self.active_tab_idx];
         let file_path = tab.path.clone();
         let file_name = tab.file_name.clone();
 
         self.active_bottom_tab = BottomTab::RunConsole;
-        self.console_output.push("==================================================".to_string());
-        self.console_output.push(format!(">> [Runner] Launching '{}' ({})", file_name, chrono_like_timestamp()));
+        self.console_output
+            .push("==================================================".to_string());
+        self.console_output.push(format!(
+            ">> [Runner] Launching '{}' ({})",
+            file_name,
+            chrono_like_timestamp()
+        ));
 
         let start_time = std::time::Instant::now();
 
         if file_name.ends_with(".rs") || file_name == "Cargo.toml" {
             // Check if inside a Cargo workspace
             let has_cargo = self.workspace_dir.join("Cargo.toml").exists()
-                || file_path.parent().map(|p| p.join("Cargo.toml").exists()).unwrap_or(false);
+                || file_path
+                    .parent()
+                    .map(|p| p.join("Cargo.toml").exists())
+                    .unwrap_or(false);
 
             if has_cargo {
                 self.console_output.push(">> $ cargo run".to_string());
@@ -624,41 +826,60 @@ Eve,29,195.00,true".to_string()
                 self.handle_process_output(res, start_time.elapsed());
             } else {
                 // Standalone Rust file: compile with rustc and execute
-                let bin_path = "/tmp/sub_ide_rust_exec";
-                self.console_output.push(format!(">> $ rustc {:?} -o {}", file_path, bin_path));
+                let bin_path = std::env::temp_dir().join(if cfg!(target_os = "windows") {
+                    "sub_ide_rust_exec.exe"
+                } else {
+                    "sub_ide_rust_exec"
+                });
+                self.console_output.push(format!(
+                    ">> $ rustc {:?} -o {}",
+                    file_path,
+                    bin_path.display()
+                ));
                 let compile_res = std::process::Command::new("rustc")
                     .arg(&file_path)
                     .arg("-o")
-                    .arg(bin_path)
+                    .arg(&bin_path)
                     .output();
 
                 match compile_res {
                     Ok(comp) if comp.status.success() => {
-                        self.console_output.push(">> Compilation successful. Running binary...".to_string());
-                        let exec_res = std::process::Command::new(bin_path).output();
+                        self.console_output
+                            .push(">> Compilation successful. Running binary...".to_string());
+                        let exec_res = std::process::Command::new(&bin_path).output();
                         self.handle_process_output(exec_res, start_time.elapsed());
                     }
                     Ok(comp) => {
-                        self.console_output.push(String::from_utf8_lossy(&comp.stderr).to_string());
-                        self.console_output.push(">> [Error] Compilation failed.".to_string());
+                        self.console_output
+                            .push(String::from_utf8_lossy(&comp.stderr).to_string());
+                        self.console_output
+                            .push(">> [Error] Compilation failed.".to_string());
                     }
                     Err(e) => {
-                        self.console_output.push(format!(">> [Error] Failed to invoke rustc: {}", e));
+                        self.console_output
+                            .push(format!(">> [Error] Failed to invoke rustc: {}", e));
                     }
                 }
             }
         } else if file_name.ends_with(".py") || file_name.ends_with(".pyi") {
-            // Python execution via python3
-            self.console_output.push(format!(">> $ python3 {:?}", file_path));
+            // Python execution via python3 / python
+            let py_cmd = if cfg!(target_os = "windows") {
+                "python"
+            } else {
+                "python3"
+            };
+            self.console_output
+                .push(format!(">> $ {} {:?}", py_cmd, file_path));
             let work_dir = file_path.parent().unwrap_or(&self.workspace_dir);
-            let res = std::process::Command::new("python3")
+            let res = std::process::Command::new(py_cmd)
                 .arg(&file_path)
                 .current_dir(work_dir)
                 .output();
             self.handle_process_output(res, start_time.elapsed());
         } else if file_name.ends_with(".sh") || file_name.ends_with(".bash") {
             // Shell script execution via bash
-            self.console_output.push(format!(">> $ bash {:?}", file_path));
+            self.console_output
+                .push(format!(">> $ bash {:?}", file_path));
             let res = std::process::Command::new("bash")
                 .arg(&file_path)
                 .current_dir(&self.workspace_dir)
@@ -666,7 +887,8 @@ Eve,29,195.00,true".to_string()
             self.handle_process_output(res, start_time.elapsed());
         } else if file_name.ends_with(".js") || file_name.ends_with(".mjs") {
             // JavaScript execution via node
-            self.console_output.push(format!(">> $ node {:?}", file_path));
+            self.console_output
+                .push(format!(">> $ node {:?}", file_path));
             let res = std::process::Command::new("node")
                 .arg(&file_path)
                 .current_dir(&self.workspace_dir)
@@ -674,7 +896,8 @@ Eve,29,195.00,true".to_string()
             self.handle_process_output(res, start_time.elapsed());
         } else if file_name.ends_with(".ts") {
             // TypeScript execution
-            self.console_output.push(format!(">> $ ts-node {:?}", file_path));
+            self.console_output
+                .push(format!(">> $ ts-node {:?}", file_path));
             let res = std::process::Command::new("ts-node")
                 .arg(&file_path)
                 .current_dir(&self.workspace_dir)
@@ -682,31 +905,54 @@ Eve,29,195.00,true".to_string()
             self.handle_process_output(res, start_time.elapsed());
         } else if file_name.ends_with(".c") {
             // C execution via gcc
-            let bin = "/tmp/sub_ide_c_exec";
-            self.console_output.push(format!(">> $ gcc {:?} -o {}", file_path, bin));
-            if let Ok(c) = std::process::Command::new("gcc").arg(&file_path).arg("-o").arg(bin).output() {
+            let bin = std::env::temp_dir().join(if cfg!(target_os = "windows") {
+                "sub_ide_c_exec.exe"
+            } else {
+                "sub_ide_c_exec"
+            });
+            self.console_output
+                .push(format!(">> $ gcc {:?} -o {}", file_path, bin.display()));
+            if let Ok(c) = std::process::Command::new("gcc")
+                .arg(&file_path)
+                .arg("-o")
+                .arg(&bin)
+                .output()
+            {
                 if c.status.success() {
-                    let res = std::process::Command::new(bin).output();
+                    let res = std::process::Command::new(&bin).output();
                     self.handle_process_output(res, start_time.elapsed());
                 } else {
-                    self.console_output.push(String::from_utf8_lossy(&c.stderr).to_string());
+                    self.console_output
+                        .push(String::from_utf8_lossy(&c.stderr).to_string());
                 }
             }
         } else if file_name.ends_with(".cpp") || file_name.ends_with(".cc") {
             // C++ execution via g++
-            let bin = "/tmp/sub_ide_cpp_exec";
-            self.console_output.push(format!(">> $ g++ {:?} -o {}", file_path, bin));
-            if let Ok(c) = std::process::Command::new("g++").arg(&file_path).arg("-o").arg(bin).output() {
+            let bin = std::env::temp_dir().join(if cfg!(target_os = "windows") {
+                "sub_ide_cpp_exec.exe"
+            } else {
+                "sub_ide_cpp_exec"
+            });
+            self.console_output
+                .push(format!(">> $ g++ {:?} -o {}", file_path, bin.display()));
+            if let Ok(c) = std::process::Command::new("g++")
+                .arg(&file_path)
+                .arg("-o")
+                .arg(&bin)
+                .output()
+            {
                 if c.status.success() {
-                    let res = std::process::Command::new(bin).output();
+                    let res = std::process::Command::new(&bin).output();
                     self.handle_process_output(res, start_time.elapsed());
                 } else {
-                    self.console_output.push(String::from_utf8_lossy(&c.stderr).to_string());
+                    self.console_output
+                        .push(String::from_utf8_lossy(&c.stderr).to_string());
                 }
             }
         } else if file_name.ends_with(".go") {
             // Go execution
-            self.console_output.push(format!(">> $ go run {:?}", file_path));
+            self.console_output
+                .push(format!(">> $ go run {:?}", file_path));
             let res = std::process::Command::new("go")
                 .arg("run")
                 .arg(&file_path)
@@ -715,7 +961,8 @@ Eve,29,195.00,true".to_string()
             self.handle_process_output(res, start_time.elapsed());
         } else if file_name.ends_with(".sb") {
             // SUB-lang runner
-            self.console_output.push(format!(">> $ sub {:?}", file_path));
+            self.console_output
+                .push(format!(">> $ sub {:?}", file_path));
             let res = std::process::Command::new("sub")
                 .arg(&file_path)
                 .current_dir(&self.workspace_dir)
@@ -726,7 +973,11 @@ Eve,29,195.00,true".to_string()
         }
     }
 
-    fn handle_process_output(&mut self, res: std::io::Result<std::process::Output>, elapsed: std::time::Duration) {
+    fn handle_process_output(
+        &mut self,
+        res: std::io::Result<std::process::Output>,
+        elapsed: std::time::Duration,
+    ) {
         match res {
             Ok(out) => {
                 let stdout = String::from_utf8_lossy(&out.stdout);
@@ -738,11 +989,15 @@ Eve,29,195.00,true".to_string()
                     self.console_output.push(format!("[STDERR] {}", line));
                 }
                 let code = out.status.code().unwrap_or(0);
-                self.console_output.push(format!(">> Process finished with exit code {} ({:.2?})", code, elapsed));
+                self.console_output.push(format!(
+                    ">> Process finished with exit code {} ({:.2?})",
+                    code, elapsed
+                ));
                 self.status_message = format!("Execution finished (code {})", code);
             }
             Err(e) => {
-                self.console_output.push(format!(">> Execution failed: {}", e));
+                self.console_output
+                    .push(format!(">> Execution failed: {}", e));
                 self.status_message = format!("Execution error: {}", e);
             }
         }
@@ -751,10 +1006,16 @@ Eve,29,195.00,true".to_string()
     /// Execute a bash terminal command in the workspace directory
     pub fn execute_terminal_command(&mut self, cmd: &str) {
         let trimmed = cmd.trim();
-        if trimmed.is_empty() { return; }
+        if trimmed.is_empty() {
+            return;
+        }
 
         self.terminal_history.push(trimmed.to_string());
-        self.terminal_output.push(format!("subhobhai943@sub-ide:{}$ {}", self.workspace_dir.display(), trimmed));
+        self.terminal_output.push(format!(
+            "subhobhai943@sub-ide:{}$ {}",
+            self.workspace_dir.display(),
+            trimmed
+        ));
 
         if trimmed == "clear" {
             self.terminal_output.clear();
@@ -762,9 +1023,12 @@ Eve,29,195.00,true".to_string()
         }
 
         if trimmed.starts_with("cd ") {
-            let target = trimmed[3..].trim();
+            let target = trimmed.strip_prefix("cd ").unwrap_or_default().trim();
             let new_path = if target == ".." {
-                self.workspace_dir.parent().unwrap_or(&self.workspace_dir).to_path_buf()
+                self.workspace_dir
+                    .parent()
+                    .unwrap_or(&self.workspace_dir)
+                    .to_path_buf()
             } else if target.starts_with('/') {
                 PathBuf::from(target)
             } else {
@@ -773,16 +1037,25 @@ Eve,29,195.00,true".to_string()
             if new_path.is_dir() {
                 self.change_workspace(new_path);
             } else {
-                self.terminal_output.push(format!("bash: cd: {:?}: No such file or directory", target));
+                self.terminal_output
+                    .push(format!("bash: cd: {:?}: No such file or directory", target));
             }
             return;
         }
 
-        let out = std::process::Command::new("bash")
-            .arg("-c")
-            .arg(trimmed)
-            .current_dir(&self.workspace_dir)
-            .output();
+        let out = if cfg!(target_os = "windows") {
+            std::process::Command::new("cmd")
+                .arg("/C")
+                .arg(trimmed)
+                .current_dir(&self.workspace_dir)
+                .output()
+        } else {
+            std::process::Command::new("bash")
+                .arg("-c")
+                .arg(trimmed)
+                .current_dir(&self.workspace_dir)
+                .output()
+        };
 
         match out {
             Ok(res) => {
@@ -833,21 +1106,67 @@ Eve,29,195.00,true".to_string()
                     self.show_find_replace = !self.show_find_replace;
                     ui.close_menu();
                 }
-                if ui.button("Undo (Ctrl+Z)").clicked() { ui.close_menu(); }
-                if ui.button("Redo (Ctrl+Y)").clicked() { ui.close_menu(); }
+                if ui.button("Undo (Ctrl+Z)").clicked() {
+                    ui.close_menu();
+                }
+                if ui.button("Redo (Ctrl+Y)").clicked() {
+                    ui.close_menu();
+                }
             });
 
             ui.menu_button("View", |ui| {
-                if ui.button("▶ Run Console (Alt+1)").clicked() { self.active_bottom_tab = BottomTab::RunConsole; ui.close_menu(); }
-                if ui.button("💻 Terminal (Alt+2)").clicked() { self.active_bottom_tab = BottomTab::Terminal; ui.close_menu(); }
-                if ui.button("🐛 Debugger (Alt+3)").clicked() { self.active_bottom_tab = BottomTab::Debugger; ui.close_menu(); }
-                if ui.button("⚠️ Problems (LSP) (Alt+4)").clicked() { self.active_bottom_tab = BottomTab::ProblemsLsp; ui.close_menu(); }
-                if ui.button("📊 Data Wrangler (Alt+5)").clicked() { self.active_bottom_tab = BottomTab::DataWrangler; ui.close_menu(); }
-                if ui.button("🏛 Database SQL (Alt+6)").clicked() { self.active_bottom_tab = BottomTab::DatabaseConsole; ui.close_menu(); }
-                if ui.button("🌐 REST Client (Alt+7)").clicked() { self.active_bottom_tab = BottomTab::RestClient; ui.close_menu(); }
-                if ui.button("🌿 Git VCS (Alt+8)").clicked() { self.active_bottom_tab = BottomTab::GitLog; ui.close_menu(); }
+                if ui.button("▶ Run Console (Alt+1)").clicked() {
+                    self.active_bottom_tab = BottomTab::RunConsole;
+                    ui.close_menu();
+                }
+                if ui.button("💻 Terminal (Alt+2)").clicked() {
+                    self.active_bottom_tab = BottomTab::Terminal;
+                    ui.close_menu();
+                }
+                if ui.button("🐛 Debugger (Alt+3)").clicked() {
+                    self.active_bottom_tab = BottomTab::Debugger;
+                    ui.close_menu();
+                }
+                if ui.button("⚠️ Problems (LSP) (Alt+4)").clicked() {
+                    self.active_bottom_tab = BottomTab::ProblemsLsp;
+                    ui.close_menu();
+                }
+                if ui.button("📊 Data Wrangler (Alt+5)").clicked() {
+                    self.active_bottom_tab = BottomTab::DataWrangler;
+                    ui.close_menu();
+                }
+                if ui.button("🏛 Database SQL (Alt+6)").clicked() {
+                    self.active_bottom_tab = BottomTab::DatabaseConsole;
+                    ui.close_menu();
+                }
+                if ui.button("🌐 REST Client (Alt+7)").clicked() {
+                    self.active_bottom_tab = BottomTab::RestClient;
+                    ui.close_menu();
+                }
+                if ui.button("🌿 Git VCS (Alt+8)").clicked() {
+                    self.active_bottom_tab = BottomTab::GitLog;
+                    ui.close_menu();
+                }
                 ui.separator();
-                if ui.button(if self.show_right_pane { "Hide Right Tools Panel" } else { "Show Right Tools Panel" }).clicked() {
+                ui.label("Zoom / UI Scale:");
+                for scale in [0.75f32, 0.9f32, 1.0f32, 1.1f32, 1.25f32, 1.5f32] {
+                    let label = format!("{:.0}%", scale * 100.0);
+                    if ui.button(label).clicked() {
+                        self.config.set_ui_scale(scale);
+                        self.config.save();
+                        ui.ctx().set_pixels_per_point(self.config.ui_scale);
+                        ui.close_menu();
+                    }
+                }
+                ui.separator();
+                if ui
+                    .button(if self.show_right_pane {
+                        "Hide Right Tools Panel"
+                    } else {
+                        "Show Right Tools Panel"
+                    })
+                    .clicked()
+                {
                     self.show_right_pane = !self.show_right_pane;
                     ui.close_menu();
                 }
@@ -864,7 +1183,8 @@ Eve,29,195.00,true".to_string()
                 }
                 if ui.button("⚡ Run LSP Analysis").clicked() {
                     if let Some(tab) = self.open_tabs.get(self.active_tab_idx) {
-                        self.lsp_manager.run_diagnostics(&self.workspace_dir, &tab.path);
+                        self.lsp_manager
+                            .run_diagnostics(&self.workspace_dir, &tab.path);
                         self.active_bottom_tab = BottomTab::ProblemsLsp;
                     }
                     ui.close_menu();
@@ -896,7 +1216,11 @@ Eve,29,195.00,true".to_string()
 
             // Right-aligned quick action buttons
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let right_toggle_text = if self.show_right_pane { "⮞ Right Tools" } else { "⮜ Right Tools" };
+                let right_toggle_text = if self.show_right_pane {
+                    "⮞ Right Tools"
+                } else {
+                    "⮜ Right Tools"
+                };
                 if ui.button(right_toggle_text).clicked() {
                     self.show_right_pane = !self.show_right_pane;
                 }
@@ -906,10 +1230,24 @@ Eve,29,195.00,true".to_string()
                 if ui.button("💾 Save").clicked() {
                     self.save_active_file();
                 }
-                if ui.button(egui::RichText::new("▶ Run").color(Color32::from_rgb(100, 220, 100)).strong()).clicked() {
+                if ui
+                    .button(
+                        egui::RichText::new("▶ Run")
+                            .color(Color32::from_rgb(100, 220, 100))
+                            .strong(),
+                    )
+                    .clicked()
+                {
                     self.run_active_file();
                 }
-                if ui.button(egui::RichText::new("🐛 Debug").color(Color32::from_rgb(255, 120, 100)).strong()).clicked() {
+                if ui
+                    .button(
+                        egui::RichText::new("🐛 Debug")
+                            .color(Color32::from_rgb(255, 120, 100))
+                            .strong(),
+                    )
+                    .clicked()
+                {
                     self.active_bottom_tab = BottomTab::Debugger;
                 }
             });
@@ -943,10 +1281,18 @@ Eve,29,195.00,true".to_string()
     fn render_project_explorer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new("📁 Project").strong());
-            if ui.button("📂 Open Folder...").on_hover_text("Browse & Select Project Folder").clicked() {
+            if ui
+                .button("📂 Open Folder...")
+                .on_hover_text("Browse & Select Project Folder")
+                .clicked()
+            {
                 self.open_folder_browser();
             }
-            if ui.button("➕ File").on_hover_text("Create New File").clicked() {
+            if ui
+                .button("➕ File")
+                .on_hover_text("Create New File")
+                .clicked()
+            {
                 self.show_new_file_modal = true;
             }
             if ui.button("🔄").on_hover_text("Refresh").clicked() {
@@ -955,12 +1301,23 @@ Eve,29,195.00,true".to_string()
             }
         });
 
-        let proj_name = self.workspace_dir.file_name().unwrap_or_default().to_string_lossy();
-        ui.label(egui::RichText::new(format!("Root: {}", proj_name)).weak().font(FontId::monospace(11.0)));
+        let proj_name = self
+            .workspace_dir
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        ui.label(
+            egui::RichText::new(format!("Root: {}", proj_name))
+                .weak()
+                .font(FontId::monospace(11.0)),
+        );
         ui.separator();
 
         let mut to_open = None;
-        let active_path = self.open_tabs.get(self.active_tab_idx).map(|t| t.path.clone());
+        let active_path = self
+            .open_tabs
+            .get(self.active_tab_idx)
+            .map(|t| t.path.clone());
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             for entry in &mut self.file_tree {
@@ -984,13 +1341,21 @@ Eve,29,195.00,true".to_string()
 
         // Breadcrumb bar
         let active_path = self.open_tabs[self.active_tab_idx].path.clone();
-        let rel_path = active_path.strip_prefix(&self.workspace_dir).unwrap_or(&active_path);
+        let rel_path = active_path
+            .strip_prefix(&self.workspace_dir)
+            .unwrap_or(&active_path);
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new("📍").color(Color32::from_rgb(100, 180, 255)));
             let parts: Vec<_> = rel_path.iter().map(|p| p.to_string_lossy()).collect();
             for (i, part) in parts.iter().enumerate() {
-                if i > 0 { ui.label("›"); }
-                ui.label(egui::RichText::new(part.as_ref()).monospace().color(Color32::from_rgb(180, 180, 180)));
+                if i > 0 {
+                    ui.label("›");
+                }
+                ui.label(
+                    egui::RichText::new(part.as_ref())
+                        .monospace()
+                        .color(Color32::from_rgb(180, 180, 180)),
+                );
             }
         });
         ui.separator();
@@ -1006,25 +1371,39 @@ Eve,29,195.00,true".to_string()
                     format!("{} ", tab.file_name)
                 };
 
-                let badge = if tab.file_name.ends_with(".py") { "[PY] " }
-                else if tab.file_name.ends_with(".rs") { "[RS] " }
-                else if tab.file_name.ends_with(".sb") { "[SB] " }
-                else if tab.file_name.ends_with(".toml") { "[CFG] " }
-                else if tab.file_name.ends_with(".sql") { "[SQL] " }
-                else { "[DOC] " };
+                let badge = if tab.file_name.ends_with(".py") {
+                    "[PY] "
+                } else if tab.file_name.ends_with(".rs") {
+                    "[RS] "
+                } else if tab.file_name.ends_with(".sb") {
+                    "[SB] "
+                } else if tab.file_name.ends_with(".toml") {
+                    "[CFG] "
+                } else if tab.file_name.ends_with(".sql") {
+                    "[SQL] "
+                } else {
+                    "[DOC] "
+                };
 
                 let label_text = format!("{}{}", badge, title);
                 let btn = if is_active {
-                    egui::Button::new(egui::RichText::new(label_text).color(Color32::from_rgb(255, 255, 255)).strong())
-                        .fill(Color32::from_rgb(60, 63, 65))
+                    egui::Button::new(
+                        egui::RichText::new(label_text)
+                            .color(Color32::from_rgb(255, 255, 255))
+                            .strong(),
+                    )
+                    .fill(Color32::from_rgb(60, 63, 65))
                 } else {
-                    egui::Button::new(egui::RichText::new(label_text).color(Color32::from_rgb(160, 160, 160)))
-                        .fill(Color32::from_rgb(43, 43, 43))
+                    egui::Button::new(
+                        egui::RichText::new(label_text).color(Color32::from_rgb(160, 160, 160)),
+                    )
+                    .fill(Color32::from_rgb(43, 43, 43))
                 };
 
                 if ui.add(btn).clicked() {
                     self.active_tab_idx = idx;
-                    self.lsp_manager.run_diagnostics(&self.workspace_dir, &self.open_tabs[idx].path);
+                    self.lsp_manager
+                        .run_diagnostics(&self.workspace_dir, &self.open_tabs[idx].path);
                 }
                 if ui.button("✖").clicked() {
                     tab_to_close = Some(idx);
@@ -1032,9 +1411,15 @@ Eve,29,195.00,true".to_string()
                 ui.separator();
             }
 
-            if ui.button("➕").on_hover_text("New Scratch Buffer").clicked() {
+            if ui
+                .button("➕")
+                .on_hover_text("New Scratch Buffer")
+                .clicked()
+            {
                 self.open_tabs.push(OpenTab {
-                    path: self.workspace_dir.join(format!("scratch_{}.py", self.open_tabs.len())),
+                    path: self
+                        .workspace_dir
+                        .join(format!("scratch_{}.py", self.open_tabs.len())),
                     file_name: format!("scratch_{}.py", self.open_tabs.len()),
                     content: "# Python Scratch Pad\nprint('Hello from SUB-IDE')\n".to_string(),
                     is_dirty: false,
@@ -1060,13 +1445,14 @@ Eve,29,195.00,true".to_string()
                 ui.text_edit_singleline(&mut self.find_input);
                 ui.label("Replace:");
                 ui.text_edit_singleline(&mut self.replace_input);
-                if ui.button("Replace All").clicked() {
-                    if !self.find_input.is_empty() && self.active_tab_idx < self.open_tabs.len() {
-                        let tab = &mut self.open_tabs[self.active_tab_idx];
-                        tab.content = tab.content.replace(&self.find_input, &self.replace_input);
-                        tab.is_dirty = true;
-                        self.status_message = format!("Replaced occurrences of '{}'", self.find_input);
-                    }
+                if ui.button("Replace All").clicked()
+                    && !self.find_input.is_empty()
+                    && self.active_tab_idx < self.open_tabs.len()
+                {
+                    let tab = &mut self.open_tabs[self.active_tab_idx];
+                    tab.content = tab.content.replace(&self.find_input, &self.replace_input);
+                    tab.is_dirty = true;
+                    self.status_message = format!("Replaced occurrences of '{}'", self.find_input);
                 }
                 if ui.button("✖").clicked() {
                     self.show_find_replace = false;
@@ -1080,12 +1466,20 @@ Eve,29,195.00,true".to_string()
         let bps = self.breakpoints.entry(active_path.clone()).or_default();
         let diags = self.lsp_manager.diagnostics_for_file(&active_path);
 
-        let line_count = self.open_tabs[self.active_tab_idx].content.lines().count().max(1);
+        let line_count = self.open_tabs[self.active_tab_idx]
+            .content
+            .lines()
+            .count()
+            .max(1);
         let mut line_labels = String::new();
         for i in 1..=line_count {
             let has_bp = bps.contains(&i);
-            let has_err = diags.iter().any(|d| d.line == i && d.severity == DiagnosticSeverity::Error);
-            let has_warn = diags.iter().any(|d| d.line == i && d.severity == DiagnosticSeverity::Warning);
+            let has_err = diags
+                .iter()
+                .any(|d| d.line == i && d.severity == DiagnosticSeverity::Error);
+            let has_warn = diags
+                .iter()
+                .any(|d| d.line == i && d.severity == DiagnosticSeverity::Warning);
 
             let prefix = if has_bp {
                 "🔴"
@@ -1111,21 +1505,26 @@ Eve,29,195.00,true".to_string()
                             egui::RichText::new(&line_labels)
                                 .monospace()
                                 .font(FontId::monospace(13.5))
-                                .color(Color32::from_rgb(120, 120, 120))
-                        ).sense(egui::Sense::click())
+                                .color(Color32::from_rgb(120, 120, 120)),
+                        )
+                        .sense(egui::Sense::click()),
                     );
 
                     if gutter_resp.clicked() {
                         if let Some(pos) = gutter_resp.interact_pointer_pos() {
                             let rel_y = pos.y - gutter_resp.rect.top();
                             let line_height = 18.0;
-                            let clicked_line = ((rel_y / line_height).floor() as usize + 1).min(line_count).max(1);
+                            let clicked_line = ((rel_y / line_height).floor() as usize + 1)
+                                .min(line_count)
+                                .max(1);
                             if let Some(p) = bps.iter().position(|&l| l == clicked_line) {
                                 bps.remove(p);
-                                self.status_message = format!("Removed breakpoint at line {}", clicked_line);
+                                self.status_message =
+                                    format!("Removed breakpoint at line {}", clicked_line);
                             } else {
                                 bps.push(clicked_line);
-                                self.status_message = format!("Added breakpoint at line {}", clicked_line);
+                                self.status_message =
+                                    format!("Added breakpoint at line {}", clicked_line);
                             }
                         }
                     }
@@ -1144,12 +1543,13 @@ Eve,29,195.00,true".to_string()
                             .code_editor()
                             .desired_width(f32::INFINITY)
                             .desired_rows(line_count.max(35))
-                            .layouter(&mut layouter)
+                            .layouter(&mut layouter),
                     );
 
                     if edit_resp.changed() {
                         tab.is_dirty = true;
-                        self.status_message = format!("Modified {} ({} chars)", tab.file_name, tab.content.len());
+                        self.status_message =
+                            format!("Modified {} ({} chars)", tab.file_name, tab.content.len());
                     }
                 });
             });
@@ -1158,10 +1558,22 @@ Eve,29,195.00,true".to_string()
     /// Right Tools Pane (Database Explorer, ER Diagram, Django Routes, Docker)
     fn render_right_pane(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.active_right_tab, RightTab::DatabaseExplorer, "🗄 DB");
+            ui.selectable_value(
+                &mut self.active_right_tab,
+                RightTab::DatabaseExplorer,
+                "🗄 DB",
+            );
             ui.selectable_value(&mut self.active_right_tab, RightTab::ErDiagram, "🔗 ER");
-            ui.selectable_value(&mut self.active_right_tab, RightTab::DjangoRoutes, "🌐 Routes");
-            ui.selectable_value(&mut self.active_right_tab, RightTab::DockerContainers, "🐳 Docker");
+            ui.selectable_value(
+                &mut self.active_right_tab,
+                RightTab::DjangoRoutes,
+                "🌐 Routes",
+            );
+            ui.selectable_value(
+                &mut self.active_right_tab,
+                RightTab::DockerContainers,
+                "🐳 Docker",
+            );
             if ui.button("✖").on_hover_text("Hide Panel").clicked() {
                 self.show_right_pane = false;
             }
@@ -1171,7 +1583,10 @@ Eve,29,195.00,true".to_string()
         match self.active_right_tab {
             RightTab::DatabaseExplorer => {
                 ui.heading("🗄 Database Explorer");
-                ui.label(egui::RichText::new("Connection: 🟢 SQLite (blog.db)").color(Color32::from_rgb(100, 220, 100)));
+                ui.label(
+                    egui::RichText::new("Connection: 🟢 SQLite (blog.db)")
+                        .color(Color32::from_rgb(100, 220, 100)),
+                );
                 ui.separator();
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -1237,15 +1652,21 @@ Eve,29,195.00,true".to_string()
                     ui.label(egui::RichText::new("Route").strong());
                     ui.end_row();
 
-                    ui.label(egui::RichText::new("GET/POST").color(Color32::from_rgb(100, 220, 100)));
+                    ui.label(
+                        egui::RichText::new("GET/POST").color(Color32::from_rgb(100, 220, 100)),
+                    );
                     ui.label("/admin/");
                     ui.end_row();
 
-                    ui.label(egui::RichText::new("GET/POST").color(Color32::from_rgb(100, 220, 100)));
+                    ui.label(
+                        egui::RichText::new("GET/POST").color(Color32::from_rgb(100, 220, 100)),
+                    );
                     ui.label("/api/v1/users/");
                     ui.end_row();
 
-                    ui.label(egui::RichText::new("GET/POST").color(Color32::from_rgb(100, 220, 100)));
+                    ui.label(
+                        egui::RichText::new("GET/POST").color(Color32::from_rgb(100, 220, 100)),
+                    );
                     ui.label("/api/v1/posts/");
                     ui.end_row();
 
@@ -1270,15 +1691,43 @@ Eve,29,195.00,true".to_string()
     fn render_bottom_dock(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.active_bottom_tab, BottomTab::RunConsole, "▶ Run");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::Terminal, "💻 Terminal");
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::Terminal,
+                "💻 Terminal",
+            );
             ui.selectable_value(&mut self.active_bottom_tab, BottomTab::Debugger, "🐛 Debug");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::ProblemsLsp, "⚠️ Problems (LSP)");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::DataWrangler, "📊 Data Wrangler");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::DatabaseConsole, "🏛 Database SQL");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::RestClient, "🌐 REST Client");
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::ProblemsLsp,
+                "⚠️ Problems (LSP)",
+            );
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::DataWrangler,
+                "📊 Data Wrangler",
+            );
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::DatabaseConsole,
+                "🏛 Database SQL",
+            );
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::RestClient,
+                "🌐 REST Client",
+            );
             ui.selectable_value(&mut self.active_bottom_tab, BottomTab::GitLog, "🌿 Git VCS");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::Notebook, "📓 Notebook");
-            ui.selectable_value(&mut self.active_bottom_tab, BottomTab::AiMcpServer, "⚡ AI Assistant");
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::Notebook,
+                "📓 Notebook",
+            );
+            ui.selectable_value(
+                &mut self.active_bottom_tab,
+                BottomTab::AiMcpServer,
+                "⚡ AI Assistant",
+            );
         });
         ui.separator();
 
@@ -1291,15 +1740,27 @@ Eve,29,195.00,true".to_string()
                     if ui.button("🗑 Clear").clicked() {
                         self.console_output.clear();
                     }
-                    ui.label(egui::RichText::new("Execution Runner: Multi-Language (Rust, Python, Shell, C/C++, Go)").color(Color32::from_rgb(100, 200, 255)));
+                    ui.label(
+                        egui::RichText::new(
+                            "Execution Runner: Multi-Language (Rust, Python, Shell, C/C++, Go)",
+                        )
+                        .color(Color32::from_rgb(100, 200, 255)),
+                    );
                 });
                 ui.separator();
 
-                egui::ScrollArea::vertical().max_height(140.0).stick_to_bottom(true).show(ui, |ui| {
-                    for line in &self.console_output {
-                        ui.label(egui::RichText::new(line).monospace().font(FontId::monospace(12.5)));
-                    }
-                });
+                egui::ScrollArea::vertical()
+                    .max_height(140.0)
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        for line in &self.console_output {
+                            ui.label(
+                                egui::RichText::new(line)
+                                    .monospace()
+                                    .font(FontId::monospace(12.5)),
+                            );
+                        }
+                    });
 
                 ui.separator();
                 // Interactive Python REPL Console Input
@@ -1310,7 +1771,7 @@ Eve,29,195.00,true".to_string()
                     if should_eval && !self.repl_input.is_empty() {
                         let cmd = self.repl_input.clone();
                         self.console_output.push(format!(">>> {}", cmd));
-                        let out = std::process::Command::new("python3")
+                        let py_cmd = if cfg!(target_os = "windows") { "python" } else { "python3" }; let out = std::process::Command::new(py_cmd)
                             .args(["-c", &format!("import sys\ntry:\n    res = eval({:?})\n    if res is not None: print(repr(res))\nexcept Exception:\n    exec({:?})\n", cmd, cmd)])
                             .output();
                         match out {
@@ -1330,28 +1791,63 @@ Eve,29,195.00,true".to_string()
             }
             BottomTab::Terminal => {
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(format!("💻 bash terminal in {:?}", self.workspace_dir)).color(Color32::from_rgb(100, 220, 100)));
-                    if ui.button("ls -la").clicked() { self.execute_terminal_command("ls -la"); }
-                    if ui.button("cargo check").clicked() { self.execute_terminal_command("cargo check"); }
-                    if ui.button("cargo run").clicked() { self.execute_terminal_command("cargo run"); }
-                    if ui.button("python3 models.py").clicked() { self.execute_terminal_command("python3 models.py"); }
-                    if ui.button("git status").clicked() { self.execute_terminal_command("git status"); }
-                    if ui.button("🗑 Clear").clicked() { self.terminal_output.clear(); }
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "💻 bash terminal in {:?}",
+                            self.workspace_dir
+                        ))
+                        .color(Color32::from_rgb(100, 220, 100)),
+                    );
+                    if ui.button("ls -la").clicked() {
+                        self.execute_terminal_command("ls -la");
+                    }
+                    if ui.button("cargo check").clicked() {
+                        self.execute_terminal_command("cargo check");
+                    }
+                    if ui.button("cargo run").clicked() {
+                        self.execute_terminal_command("cargo run");
+                    }
+                    if ui.button("python3 models.py").clicked() {
+                        self.execute_terminal_command("python3 models.py");
+                    }
+                    if ui.button("git status").clicked() {
+                        self.execute_terminal_command("git status");
+                    }
+                    if ui.button("🗑 Clear").clicked() {
+                        self.terminal_output.clear();
+                    }
                 });
                 ui.separator();
 
-                egui::ScrollArea::vertical().max_height(140.0).stick_to_bottom(true).show(ui, |ui| {
-                    for line in &self.terminal_output {
-                        ui.label(egui::RichText::new(line).monospace().font(FontId::monospace(12.5)));
-                    }
-                });
+                egui::ScrollArea::vertical()
+                    .max_height(140.0)
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        for line in &self.terminal_output {
+                            ui.label(
+                                egui::RichText::new(line)
+                                    .monospace()
+                                    .font(FontId::monospace(12.5)),
+                            );
+                        }
+                    });
 
                 ui.separator();
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("$").strong().color(Color32::from_rgb(100, 220, 100)));
-                    let term_resp = ui.add(egui::TextEdit::singleline(&mut self.terminal_input).desired_width(ui.available_width() - 80.0));
-                    let enter_pressed = term_resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    if (ui.button("Execute").clicked() || enter_pressed) && !self.terminal_input.is_empty() {
+                    ui.label(
+                        egui::RichText::new("$")
+                            .strong()
+                            .color(Color32::from_rgb(100, 220, 100)),
+                    );
+                    let term_resp = ui.add(
+                        egui::TextEdit::singleline(&mut self.terminal_input)
+                            .desired_width(ui.available_width() - 80.0),
+                    );
+                    let enter_pressed =
+                        term_resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    if (ui.button("Execute").clicked() || enter_pressed)
+                        && !self.terminal_input.is_empty()
+                    {
                         let cmd = self.terminal_input.clone();
                         self.execute_terminal_command(&cmd);
                         self.terminal_input.clear();
@@ -1379,19 +1875,24 @@ Eve,29,195.00,true".to_string()
                 ui.columns(2, |cols| {
                     cols[0].heading("📦 Variables (Inspector)");
                     let vars = self.debugger.get_variables(1);
-                    egui::Grid::new("dap_vars_grid").striped(true).show(&mut cols[0], |ui| {
-                        ui.label(egui::RichText::new("Name").strong());
-                        ui.label(egui::RichText::new("Type").strong());
-                        ui.label(egui::RichText::new("Value").strong());
-                        ui.end_row();
-
-                        for v in vars {
-                            ui.label(&v.name);
-                            ui.label(egui::RichText::new(&v.type_name).color(Color32::from_rgb(100, 180, 255)));
-                            ui.label(&v.value);
+                    egui::Grid::new("dap_vars_grid")
+                        .striped(true)
+                        .show(&mut cols[0], |ui| {
+                            ui.label(egui::RichText::new("Name").strong());
+                            ui.label(egui::RichText::new("Type").strong());
+                            ui.label(egui::RichText::new("Value").strong());
                             ui.end_row();
-                        }
-                    });
+
+                            for v in vars {
+                                ui.label(&v.name);
+                                ui.label(
+                                    egui::RichText::new(&v.type_name)
+                                        .color(Color32::from_rgb(100, 180, 255)),
+                                );
+                                ui.label(&v.value);
+                                ui.end_row();
+                            }
+                        });
 
                     cols[1].heading("🥞 Stack Frames");
                     cols[1].label("[0] get_display_name() at models.py:13");
@@ -1404,12 +1905,19 @@ Eve,29,195.00,true".to_string()
                     ui.heading("⚠️ LSP Problems & Compiler Diagnostics");
                     if ui.button("🔄 Re-Analyze File").clicked() {
                         if let Some(tab) = self.open_tabs.get(self.active_tab_idx) {
-                            self.lsp_manager.run_diagnostics(&self.workspace_dir, &tab.path);
+                            self.lsp_manager
+                                .run_diagnostics(&self.workspace_dir, &tab.path);
                         }
                     }
                     let diags = self.lsp_manager.get_diagnostics();
-                    let errs = diags.iter().filter(|d| d.severity == DiagnosticSeverity::Error).count();
-                    let warns = diags.iter().filter(|d| d.severity == DiagnosticSeverity::Warning).count();
+                    let errs = diags
+                        .iter()
+                        .filter(|d| d.severity == DiagnosticSeverity::Error)
+                        .count();
+                    let warns = diags
+                        .iter()
+                        .filter(|d| d.severity == DiagnosticSeverity::Warning)
+                        .count();
                     ui.label(format!("Found: {} Errors, {} Warnings", errs, warns));
                 });
                 ui.separator();
@@ -1418,33 +1926,46 @@ Eve,29,195.00,true".to_string()
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     let diags = self.lsp_manager.get_diagnostics();
                     if diags.is_empty() {
-                        ui.label(egui::RichText::new("✔ No problems detected. All code is valid!").color(Color32::from_rgb(100, 220, 100)));
+                        ui.label(
+                            egui::RichText::new("✔ No problems detected. All code is valid!")
+                                .color(Color32::from_rgb(100, 220, 100)),
+                        );
                     } else {
-                        egui::Grid::new("lsp_problems_grid").striped(true).show(ui, |ui| {
-                            ui.label(egui::RichText::new("Severity").strong());
-                            ui.label(egui::RichText::new("Source").strong());
-                            ui.label(egui::RichText::new("Location").strong());
-                            ui.label(egui::RichText::new("Message").strong());
-                            ui.end_row();
-
-                            for d in diags {
-                                let (badge, color) = match d.severity {
-                                    DiagnosticSeverity::Error => ("[ERROR]", Color32::from_rgb(255, 100, 100)),
-                                    DiagnosticSeverity::Warning => ("[WARN]", Color32::from_rgb(255, 200, 50)),
-                                    DiagnosticSeverity::Information => ("[INFO]", Color32::from_rgb(100, 180, 255)),
-                                    DiagnosticSeverity::Hint => ("[HINT]", Color32::from_rgb(180, 180, 180)),
-                                };
-
-                                ui.label(egui::RichText::new(badge).color(color).strong());
-                                ui.label(&d.source);
-                                let loc_text = format!("{}:{}", d.line, d.column);
-                                if ui.link(&loc_text).clicked() {
-                                    jump_target = Some((d.file_path.clone(), d.line));
-                                }
-                                ui.label(&d.message);
+                        egui::Grid::new("lsp_problems_grid")
+                            .striped(true)
+                            .show(ui, |ui| {
+                                ui.label(egui::RichText::new("Severity").strong());
+                                ui.label(egui::RichText::new("Source").strong());
+                                ui.label(egui::RichText::new("Location").strong());
+                                ui.label(egui::RichText::new("Message").strong());
                                 ui.end_row();
-                            }
-                        });
+
+                                for d in diags {
+                                    let (badge, color) = match d.severity {
+                                        DiagnosticSeverity::Error => {
+                                            ("[ERROR]", Color32::from_rgb(255, 100, 100))
+                                        }
+                                        DiagnosticSeverity::Warning => {
+                                            ("[WARN]", Color32::from_rgb(255, 200, 50))
+                                        }
+                                        DiagnosticSeverity::Information => {
+                                            ("[INFO]", Color32::from_rgb(100, 180, 255))
+                                        }
+                                        DiagnosticSeverity::Hint => {
+                                            ("[HINT]", Color32::from_rgb(180, 180, 180))
+                                        }
+                                    };
+
+                                    ui.label(egui::RichText::new(badge).color(color).strong());
+                                    ui.label(&d.source);
+                                    let loc_text = format!("{}:{}", d.line, d.column);
+                                    if ui.link(&loc_text).clicked() {
+                                        jump_target = Some((d.file_path.clone(), d.line));
+                                    }
+                                    ui.label(&d.message);
+                                    ui.end_row();
+                                }
+                            });
                     }
                 });
 
@@ -1462,15 +1983,19 @@ Eve,29,195.00,true".to_string()
                         if let Ok(c) = std::fs::read_to_string(&self.dw_csv_path) {
                             if let Ok(parsed_df) = DataFrame::from_csv(&c) {
                                 self.data_frame = Some(parsed_df);
-                                self.status_message = format!("Loaded CSV from {}", self.dw_csv_path);
+                                self.status_message =
+                                    format!("Loaded CSV from {}", self.dw_csv_path);
                             }
                         }
                     }
                     if ui.button("🐍 Export Pandas Script").clicked() {
                         if let Some(df) = &self.data_frame {
                             let script = df.generate_python_script();
-                            self.console_output.push(">> Generated Pandas Script:".to_string());
-                            for l in script.lines() { self.console_output.push(l.to_string()); }
+                            self.console_output
+                                .push(">> Generated Pandas Script:".to_string());
+                            for l in script.lines() {
+                                self.console_output.push(l.to_string());
+                            }
                             self.active_bottom_tab = BottomTab::RunConsole;
                         }
                     }
@@ -1493,26 +2018,32 @@ Eve,29,195.00,true".to_string()
                     });
 
                     let stats = df.compute_stats();
-                    egui::Grid::new("dw_stats_grid").striped(true).show(ui, |ui| {
-                        ui.label(egui::RichText::new("Column").strong());
-                        ui.label(egui::RichText::new("Type").strong());
-                        ui.label(egui::RichText::new("Missing %").strong());
-                        ui.label(egui::RichText::new("Mean").strong());
-                        ui.label(egui::RichText::new("Range").strong());
-                        ui.end_row();
-
-                        for s in &stats {
-                            ui.label(&s.name);
-                            ui.label(format!("{:?}", s.data_type));
-                            ui.label(format!("{:.1}%", s.missing_pct));
-                            ui.label(s.mean.map(|m| format!("{:.1}", m)).unwrap_or("-".to_string()));
-                            ui.label(match (s.min, s.max) {
-                                (Some(lo), Some(hi)) => format!("[{:.0}..{:.0}]", lo, hi),
-                                _ => "-".to_string(),
-                            });
+                    egui::Grid::new("dw_stats_grid")
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label(egui::RichText::new("Column").strong());
+                            ui.label(egui::RichText::new("Type").strong());
+                            ui.label(egui::RichText::new("Missing %").strong());
+                            ui.label(egui::RichText::new("Mean").strong());
+                            ui.label(egui::RichText::new("Range").strong());
                             ui.end_row();
-                        }
-                    });
+
+                            for s in &stats {
+                                ui.label(&s.name);
+                                ui.label(format!("{:?}", s.data_type));
+                                ui.label(format!("{:.1}%", s.missing_pct));
+                                ui.label(
+                                    s.mean
+                                        .map(|m| format!("{:.1}", m))
+                                        .unwrap_or("-".to_string()),
+                                );
+                                ui.label(match (s.min, s.max) {
+                                    (Some(lo), Some(hi)) => format!("[{:.0}..{:.0}]", lo, hi),
+                                    _ => "-".to_string(),
+                                });
+                                ui.end_row();
+                            }
+                        });
                 }
             }
             BottomTab::DatabaseConsole => {
@@ -1522,8 +2053,12 @@ Eve,29,195.00,true".to_string()
                     if ui.button("▶ Execute SQL (Ctrl+Enter)").clicked() {
                         let res = self.db_manager.execute_sql(&self.sql_input);
                         match res {
-                            Ok(q) => { self.sql_result = Some(q); }
-                            Err(e) => { self.console_output.push(format!("SQL Error: {}", e)); }
+                            Ok(q) => {
+                                self.sql_result = Some(q);
+                            }
+                            Err(e) => {
+                                self.console_output.push(format!("SQL Error: {}", e));
+                            }
                         }
                     }
                     if ui.button("SELECT * users").clicked() {
@@ -1536,28 +2071,42 @@ Eve,29,195.00,true".to_string()
                 ui.separator();
 
                 if let Some(res) = &self.sql_result {
-                    ui.label(format!("Rows: {} | Latency: {:.2}ms", res.rows.len(), res.execution_time_ms));
-                    egui::Grid::new("sql_out_grid").striped(true).show(ui, |ui| {
-                        for col in &res.columns {
-                            ui.label(egui::RichText::new(col).strong());
-                        }
-                        ui.end_row();
-                        for row in &res.rows {
-                            for cell in row {
-                                ui.label(cell);
+                    ui.label(format!(
+                        "Rows: {} | Latency: {:.2}ms",
+                        res.rows.len(),
+                        res.execution_time_ms
+                    ));
+                    egui::Grid::new("sql_out_grid")
+                        .striped(true)
+                        .show(ui, |ui| {
+                            for col in &res.columns {
+                                ui.label(egui::RichText::new(col).strong());
                             }
                             ui.end_row();
-                        }
-                    });
+                            for row in &res.rows {
+                                for cell in row {
+                                    ui.label(cell);
+                                }
+                                ui.end_row();
+                            }
+                        });
                 } else {
-                    egui::Grid::new("sql_default_grid").striped(true).show(ui, |ui| {
-                        ui.label(egui::RichText::new("id").strong());
-                        ui.label(egui::RichText::new("username").strong());
-                        ui.label(egui::RichText::new("email").strong());
-                        ui.end_row();
-                        ui.label("1"); ui.label("subho_admin"); ui.label("subho@sub.org"); ui.end_row();
-                        ui.label("2"); ui.label("vip_tester"); ui.label("tester@sub.org"); ui.end_row();
-                    });
+                    egui::Grid::new("sql_default_grid")
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label(egui::RichText::new("id").strong());
+                            ui.label(egui::RichText::new("username").strong());
+                            ui.label(egui::RichText::new("email").strong());
+                            ui.end_row();
+                            ui.label("1");
+                            ui.label("subho_admin");
+                            ui.label("subho@sub.org");
+                            ui.end_row();
+                            ui.label("2");
+                            ui.label("vip_tester");
+                            ui.label("tester@sub.org");
+                            ui.end_row();
+                        });
                 }
             }
             BottomTab::RestClient => {
@@ -1568,7 +2117,11 @@ Eve,29,195.00,true".to_string()
                             ui.selectable_value(&mut self.http_method, "GET".to_string(), "GET");
                             ui.selectable_value(&mut self.http_method, "POST".to_string(), "POST");
                             ui.selectable_value(&mut self.http_method, "PUT".to_string(), "PUT");
-                            ui.selectable_value(&mut self.http_method, "DELETE".to_string(), "DELETE");
+                            ui.selectable_value(
+                                &mut self.http_method,
+                                "DELETE".to_string(),
+                                "DELETE",
+                            );
                         });
                     ui.add(egui::TextEdit::singleline(&mut self.http_url).desired_width(450.0));
                     if ui.button("🚀 Send HTTP Request").clicked() {
@@ -1577,7 +2130,8 @@ Eve,29,195.00,true".to_string()
                             .output();
                         match out {
                             Ok(res) => {
-                                self.http_response = String::from_utf8_lossy(&res.stdout).to_string();
+                                self.http_response =
+                                    String::from_utf8_lossy(&res.stdout).to_string();
                             }
                             Err(e) => {
                                 self.http_response = format!("HTTP Execution failed: {}", e);
@@ -1599,10 +2153,18 @@ Eve,29,195.00,true".to_string()
                 });
             }
             BottomTab::GitLog => {
-                let current_br = self.git_repo.current_branch().unwrap_or_else(|_| "master".to_string());
+                let current_br = self
+                    .git_repo
+                    .current_branch()
+                    .unwrap_or_else(|_| "master".to_string());
                 ui.horizontal(|ui| {
-                    ui.label(format!("🌿 Branch: {} ({}) | Commit Message:", current_br, self.git_status_text));
-                    ui.add(egui::TextEdit::singleline(&mut self.git_commit_msg).desired_width(280.0));
+                    ui.label(format!(
+                        "🌿 Branch: {} ({}) | Commit Message:",
+                        current_br, self.git_status_text
+                    ));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.git_commit_msg).desired_width(280.0),
+                    );
                     if ui.button("Commit Changes").clicked() {
                         let _ = std::process::Command::new("git")
                             .args(["commit", "-am", &self.git_commit_msg])
@@ -1611,7 +2173,11 @@ Eve,29,195.00,true".to_string()
                         self.status_message = "Git commit created.".to_string();
                     }
                     if ui.button("View Git Diff").clicked() {
-                        if let Ok(out) = std::process::Command::new("git").arg("diff").current_dir(&self.workspace_dir).output() {
+                        if let Ok(out) = std::process::Command::new("git")
+                            .arg("diff")
+                            .current_dir(&self.workspace_dir)
+                            .output()
+                        {
                             self.git_diff_text = String::from_utf8_lossy(&out.stdout).to_string();
                         }
                     }
@@ -1647,7 +2213,12 @@ Eve,29,195.00,true".to_string()
                         ui.horizontal(|ui| {
                             ui.label(format!("In [{}]:", idx + 1));
                             if ui.button("▶ Run Cell").clicked() {
-                                let out = std::process::Command::new("python3")
+                                let py_cmd = if cfg!(target_os = "windows") {
+                                    "python"
+                                } else {
+                                    "python3"
+                                };
+                                let out = std::process::Command::new(py_cmd)
                                     .args(["-c", code])
                                     .output();
                                 match out {
@@ -1663,9 +2234,17 @@ Eve,29,195.00,true".to_string()
                                 cell_to_remove = Some(idx);
                             }
                         });
-                        ui.add(egui::TextEdit::multiline(code).font(egui::TextStyle::Monospace).desired_rows(3));
+                        ui.add(
+                            egui::TextEdit::multiline(code)
+                                .font(egui::TextStyle::Monospace)
+                                .desired_rows(3),
+                        );
                         if !output.is_empty() {
-                            ui.label(egui::RichText::new(format!("Out [{}]:\n{}", idx + 1, output)).monospace().color(Color32::from_rgb(100, 220, 100)));
+                            ui.label(
+                                egui::RichText::new(format!("Out [{}]:\n{}", idx + 1, output))
+                                    .monospace()
+                                    .color(Color32::from_rgb(100, 220, 100)),
+                            );
                         }
                         ui.separator();
                     }
@@ -1676,7 +2255,12 @@ Eve,29,195.00,true".to_string()
             }
             BottomTab::AiMcpServer => {
                 ui.heading("⚡ Model Context Protocol (MCP) Server");
-                ui.label(egui::RichText::new("Status: 🟢 Listening on 127.0.0.1:4000 (Model Context Protocol 2.0)").color(Color32::from_rgb(100, 220, 100)));
+                ui.label(
+                    egui::RichText::new(
+                        "Status: 🟢 Listening on 127.0.0.1:4000 (Model Context Protocol 2.0)",
+                    )
+                    .color(Color32::from_rgb(100, 220, 100)),
+                );
                 ui.label("Exposed IDE AI Tools: ide_list_files, ide_find_symbol, ide_django_routes, ide_database_tables, ide_execute_sql");
                 ui.separator();
 
@@ -1697,7 +2281,9 @@ Eve,29,195.00,true".to_string()
 
     /// Search Everywhere Modal popup (Double Shift)
     fn render_search_modal(&mut self, ctx: &egui::Context) {
-        if !self.show_search_everywhere { return; }
+        if !self.show_search_everywhere {
+            return;
+        }
 
         let mut to_open = None;
 
@@ -1718,36 +2304,46 @@ Eve,29,195.00,true".to_string()
 
                 let resp = ui.text_edit_singleline(&mut self.search_query);
                 if resp.changed() || resp.gained_focus() {
-                    self.search_results = self.search_engine.search(&self.search_query, self.search_tab, 10);
+                    self.search_results =
+                        self.search_engine
+                            .search(&self.search_query, self.search_tab, 10);
                 }
 
                 ui.separator();
-                egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
-                    for r in &self.search_results {
-                        let cat_badge = match r.item.category {
-                            ItemCategory::Class => "Class",
-                            ItemCategory::Function => "Func",
-                            ItemCategory::Method => "Method",
-                            ItemCategory::File => "File",
-                            ItemCategory::Action => "Action",
-                            ItemCategory::TextMatch => "Text",
-                        };
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(format!("[{}]", cat_badge)).color(Color32::from_rgb(255, 180, 50)));
-                            if ui.selectable_label(false, &r.item.title).clicked() {
-                                if r.item.category == ItemCategory::File {
-                                    to_open = Some(PathBuf::from(&r.item.location));
-                                } else {
-                                    self.status_message = format!("Selected {}", r.item.title);
+                egui::ScrollArea::vertical()
+                    .max_height(220.0)
+                    .show(ui, |ui| {
+                        for r in &self.search_results {
+                            let cat_badge = match r.item.category {
+                                ItemCategory::Class => "Class",
+                                ItemCategory::Function => "Func",
+                                ItemCategory::Method => "Method",
+                                ItemCategory::File => "File",
+                                ItemCategory::Action => "Action",
+                                ItemCategory::TextMatch => "Text",
+                            };
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new(format!("[{}]", cat_badge))
+                                        .color(Color32::from_rgb(255, 180, 50)),
+                                );
+                                if ui.selectable_label(false, &r.item.title).clicked() {
+                                    if r.item.category == ItemCategory::File {
+                                        to_open = Some(PathBuf::from(&r.item.location));
+                                    } else {
+                                        self.status_message = format!("Selected {}", r.item.title);
+                                    }
+                                    self.show_search_everywhere = false;
                                 }
-                                self.show_search_everywhere = false;
-                            }
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.label(egui::RichText::new(&r.item.location).weak());
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        ui.label(egui::RichText::new(&r.item.location).weak());
+                                    },
+                                );
                             });
-                        });
-                    }
-                });
+                        }
+                    });
 
                 ui.separator();
                 if ui.button("Close (Esc)").clicked() {
@@ -1762,7 +2358,9 @@ Eve,29,195.00,true".to_string()
 
     /// Interactive Visual Folder Browser Modal
     fn render_folder_browser_modal(&mut self, ctx: &egui::Context) {
-        if !self.show_folder_modal { return; }
+        if !self.show_folder_modal {
+            return;
+        }
 
         let mut do_change = None;
 
@@ -1773,59 +2371,76 @@ Eve,29,195.00,true".to_string()
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("Current:").strong());
-                    ui.label(egui::RichText::new(self.folder_modal_path.to_string_lossy()).monospace().color(Color32::from_rgb(100, 200, 255)));
+                    ui.label(
+                        egui::RichText::new(self.folder_modal_path.to_string_lossy())
+                            .monospace()
+                            .color(Color32::from_rgb(100, 200, 255)),
+                    );
                 });
                 ui.separator();
 
                 // Quick Bookmarks
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Bookmarks:");
-                    if ui.button("🏠 Home").clicked() {
-                        self.folder_modal_path = PathBuf::from("/home/subhobhai943");
-                        self.refresh_folder_modal_entries();
+                    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+                    let mut bookmarks: Vec<(&str, PathBuf)> = vec![("🏠 Home", home.clone())];
+                    let github = home.join("Github");
+                    if github.exists() {
+                        bookmarks.push(("📦 Github", github));
                     }
-                    if ui.button("📦 Github").clicked() {
-                        self.folder_modal_path = PathBuf::from("/home/subhobhai943/Github");
-                        self.refresh_folder_modal_entries();
+                    let subide = home.join("Github").join("SUB-IDE");
+                    if subide.exists() {
+                        bookmarks.push(("📁 SUB-IDE", subide));
                     }
-                    if ui.button("📁 SUB-IDE").clicked() {
-                        self.folder_modal_path = PathBuf::from("/home/subhobhai943/Github/SUB-IDE");
-                        self.refresh_folder_modal_entries();
+                    let downloads = home.join("Downloads");
+                    if downloads.exists() {
+                        bookmarks.push(("📥 Downloads", downloads));
                     }
-                    if ui.button("📥 Downloads").clicked() {
-                        self.folder_modal_path = PathBuf::from("/home/subhobhai943/Downloads");
-                        self.refresh_folder_modal_entries();
+                    let pyproj = home.join("PycharmProjects");
+                    if pyproj.exists() {
+                        bookmarks.push(("🐍 PycharmProjects", pyproj));
                     }
-                    if ui.button("🐍 PycharmProjects").clicked() {
-                        self.folder_modal_path = PathBuf::from("/home/subhobhai943/PycharmProjects");
-                        self.refresh_folder_modal_entries();
+                    for (label, path) in bookmarks {
+                        if ui.button(label).clicked() {
+                            self.folder_modal_path = path;
+                            self.refresh_folder_modal_entries();
+                        }
                     }
                 });
                 ui.separator();
 
                 // Directory Listing
-                egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
-                    if let Some(parent) = self.folder_modal_path.parent() {
-                        if ui.button("📁 .. (Parent Directory)").clicked() {
-                            self.folder_modal_path = parent.to_path_buf();
-                            self.refresh_folder_modal_entries();
+                egui::ScrollArea::vertical()
+                    .max_height(240.0)
+                    .show(ui, |ui| {
+                        if let Some(parent) = self.folder_modal_path.parent() {
+                            if ui.button("📁 .. (Parent Directory)").clicked() {
+                                self.folder_modal_path = parent.to_path_buf();
+                                self.refresh_folder_modal_entries();
+                            }
                         }
-                    }
 
-                    let entries = self.folder_modal_entries.clone();
-                    for entry in entries {
-                        let name = entry.file_name().unwrap_or_default().to_string_lossy();
-                        if ui.button(format!("📁 {}", name)).clicked() {
-                            self.folder_modal_path = entry;
-                            self.refresh_folder_modal_entries();
-                            break;
+                        let entries = self.folder_modal_entries.clone();
+                        for entry in entries {
+                            let name = entry.file_name().unwrap_or_default().to_string_lossy();
+                            if ui.button(format!("📁 {}", name)).clicked() {
+                                self.folder_modal_path = entry;
+                                self.refresh_folder_modal_entries();
+                                break;
+                            }
                         }
-                    }
-                });
+                    });
 
                 ui.separator();
                 ui.horizontal(|ui| {
-                    if ui.button(egui::RichText::new("✔ Select This Folder As Project Root").color(Color32::from_rgb(100, 220, 100)).strong()).clicked() {
+                    if ui
+                        .button(
+                            egui::RichText::new("✔ Select This Folder As Project Root")
+                                .color(Color32::from_rgb(100, 220, 100))
+                                .strong(),
+                        )
+                        .clicked()
+                    {
                         do_change = Some(self.folder_modal_path.clone());
                     }
                     if ui.button("Cancel").clicked() {
@@ -1842,7 +2457,9 @@ Eve,29,195.00,true".to_string()
 
     /// New File Modal
     fn render_new_file_modal(&mut self, ctx: &egui::Context) {
-        if !self.show_new_file_modal { return; }
+        if !self.show_new_file_modal {
+            return;
+        }
 
         let mut do_create = false;
         egui::Window::new("➕ Create New File")
@@ -1894,11 +2511,14 @@ fn render_tree_entry(
         let arrow = if entry.is_expanded { "▼" } else { "▶" };
         let label = format!("{} [DIR] {}", arrow, entry.name);
 
-        let row_btn = egui::Button::new(egui::RichText::new(label).color(Color32::from_rgb(220, 220, 220)))
-            .fill(Color32::TRANSPARENT);
+        let row_btn =
+            egui::Button::new(egui::RichText::new(label).color(Color32::from_rgb(220, 220, 220)))
+                .fill(Color32::TRANSPARENT);
 
         ui.horizontal(|ui| {
-            if indent > 0.0 { ui.add_space(indent); }
+            if indent > 0.0 {
+                ui.add_space(indent);
+            }
             if ui.add(row_btn).clicked() {
                 entry.toggle_expand();
             }
@@ -1912,13 +2532,21 @@ fn render_tree_entry(
             }
         }
     } else {
-        let badge = if entry.name.ends_with(".py") { "[PY] " }
-        else if entry.name.ends_with(".rs") { "[RS] " }
-        else if entry.name.ends_with(".sb") { "[SB] " }
-        else if entry.name.ends_with(".toml") { "[CFG] " }
-        else if entry.name.ends_with(".sql") { "[SQL] " }
-        else if entry.name.ends_with(".md") { "[MD] " }
-        else { "[FILE] " };
+        let badge = if entry.name.ends_with(".py") {
+            "[PY] "
+        } else if entry.name.ends_with(".rs") {
+            "[RS] "
+        } else if entry.name.ends_with(".sb") {
+            "[SB] "
+        } else if entry.name.ends_with(".toml") {
+            "[CFG] "
+        } else if entry.name.ends_with(".sql") {
+            "[SQL] "
+        } else if entry.name.ends_with(".md") {
+            "[MD] "
+        } else {
+            "[FILE] "
+        };
 
         let row_label = format!("  {}{}", badge, entry.name);
         let text_color = if is_active {
@@ -1932,10 +2560,13 @@ fn render_tree_entry(
             Color32::TRANSPARENT
         };
 
-        let btn = egui::Button::new(egui::RichText::new(row_label).color(text_color)).fill(fill_color);
+        let btn =
+            egui::Button::new(egui::RichText::new(row_label).color(text_color)).fill(fill_color);
 
         ui.horizontal(|ui| {
-            if indent > 0.0 { ui.add_space(indent); }
+            if indent > 0.0 {
+                ui.add_space(indent);
+            }
             if ui.add(btn).clicked() {
                 *to_open = Some(entry.path.clone());
             }
@@ -1955,8 +2586,8 @@ impl eframe::App for SubIdeApp {
 
         // PyCharm Darcula Theme
         let mut visuals = egui::Visuals::dark();
-        visuals.panel_fill = Color32::from_rgb(43, 43, 43);      // Darcula editor background
-        visuals.window_fill = Color32::from_rgb(60, 63, 65);     // Darcula tool window background
+        visuals.panel_fill = Color32::from_rgb(43, 43, 43); // Darcula editor background
+        visuals.window_fill = Color32::from_rgb(60, 63, 65); // Darcula tool window background
         visuals.override_text_color = Some(Color32::from_rgb(169, 183, 198));
         ctx.set_visuals(visuals);
 
@@ -1972,7 +2603,9 @@ impl eframe::App for SubIdeApp {
                 ui.separator();
                 ui.label("⚡ LSP: Online (rust-analyzer, ruff, pylsp)");
                 ui.separator();
-                let line_num = if self.open_tabs.is_empty() { 1 } else {
+                let line_num = if self.open_tabs.is_empty() {
+                    1
+                } else {
                     self.open_tabs[self.active_tab_idx].content.lines().count()
                 };
                 ui.label(format!("Lines: {}", line_num));
@@ -1981,7 +2614,10 @@ impl eframe::App for SubIdeApp {
                 ui.separator();
                 ui.label("UTF-8");
                 ui.separator();
-                ui.label(egui::RichText::new(&self.status_message).color(Color32::from_rgb(100, 220, 100)));
+                ui.label(
+                    egui::RichText::new(&self.status_message)
+                        .color(Color32::from_rgb(100, 220, 100)),
+                );
             });
         });
 
@@ -2025,7 +2661,10 @@ impl eframe::App for SubIdeApp {
 
 fn chrono_like_timestamp() -> String {
     let now = std::time::SystemTime::now();
-    let since = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+    let since = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let secs = since % 60;
     let mins = (since / 60) % 60;
     let hours = (since / 3600) % 24;
@@ -2034,11 +2673,32 @@ fn chrono_like_timestamp() -> String {
 
 /// Entry point to launch the native Desktop GUI window on Linux X11/Wayland
 pub fn run_desktop_gui() -> Result<(), eframe::Error> {
+    // Load embedded application icon
+    let icon_data = {
+        let png_bytes = include_bytes!("../assets/icon_256x256.png");
+        if let Ok(img) = image::load_from_memory(png_bytes) {
+            let rgba = img.to_rgba8();
+            let (w, h) = rgba.dimensions();
+            Some(egui::IconData {
+                rgba: rgba.into_raw(),
+                width: w,
+                height: h,
+            })
+        } else {
+            None
+        }
+    };
+
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("SUB-IDE (Pro Edition) - Next-Gen Rust IDE")
+        .with_inner_size([1280.0, 850.0])
+        .with_min_inner_size([800.0, 600.0]);
+    if let Some(icon) = icon_data {
+        viewport = viewport.with_icon(std::sync::Arc::new(icon));
+    }
+
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("SUB-IDE (Pro Edition) - Next-Gen Rust IDE")
-            .with_inner_size([1280.0, 850.0])
-            .with_min_inner_size([800.0, 600.0]),
+        viewport,
         ..Default::default()
     };
 
@@ -2046,21 +2706,48 @@ pub fn run_desktop_gui() -> Result<(), eframe::Error> {
         "SUB-IDE",
         native_options,
         Box::new(|cc| {
-            // Load crisp DejaVu Sans & DejaVu Sans Mono fonts
+            // Load platform-appropriate fonts (fall back to egui defaults if unavailable)
             let mut fonts = egui::FontDefinitions::default();
-            if let Ok(sans) = std::fs::read("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf") {
-                fonts.font_data.insert(
-                    "dejavu_sans".to_owned(),
-                    std::sync::Arc::new(egui::FontData::from_owned(sans)),
-                );
-                fonts.families.entry(egui::FontFamily::Proportional).or_default().insert(0, "dejavu_sans".to_owned());
-            }
-            if let Ok(mono) = std::fs::read("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf") {
-                fonts.font_data.insert(
-                    "dejavu_mono".to_owned(),
-                    std::sync::Arc::new(egui::FontData::from_owned(mono)),
-                );
-                fonts.families.entry(egui::FontFamily::Monospace).or_default().insert(0, "dejavu_mono".to_owned());
+            let font_candidates: &[&str] = if cfg!(target_os = "windows") {
+                &[
+                    "C:\\Windows\\Fonts\\segoeui.ttf",
+                    "C:\\Windows\\Fonts\\consola.ttf",
+                ]
+            } else if cfg!(target_os = "macos") {
+                &[
+                    "/System/Library/Fonts/SFNS.ttf",
+                    "/System/Library/Fonts/Menlo.ttc",
+                ]
+            } else {
+                &[
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                ]
+            };
+            for p in font_candidates {
+                if let Ok(data) = std::fs::read(p) {
+                    let name = p.rsplit(['/', '\\']).next().unwrap_or("font");
+                    fonts.font_data.insert(
+                        name.to_owned(),
+                        std::sync::Arc::new(egui::FontData::from_owned(data)),
+                    );
+                    if p.to_lowercase().contains("mono")
+                        || p.to_lowercase().contains("consola")
+                        || p.to_lowercase().contains("menlo")
+                    {
+                        fonts
+                            .families
+                            .entry(egui::FontFamily::Monospace)
+                            .or_default()
+                            .insert(0, name.to_owned());
+                    } else {
+                        fonts
+                            .families
+                            .entry(egui::FontFamily::Proportional)
+                            .or_default()
+                            .insert(0, name.to_owned());
+                    }
+                }
             }
             cc.egui_ctx.set_fonts(fonts);
 

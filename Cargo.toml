@@ -3,8 +3,40 @@ name = "sub-ide"
 version = "0.1.0"
 edition = "2021"
 description = "SUB-IDE: High-Performance Next-Gen IDE for Python & SUB Ecosystem (Clean-room Rust reconstruction of PyCharm Pro)"
+authors = ["SUB Ecosystem <sub@sub.org>"]
+license = "MIT"
+repository = "https://github.com/subhobhai943/SUB-IDE"
+homepage = "https://github.com/subhobhai943/SUB-IDE"
+keywords = ["ide", "pycharm", "python", "rust", "editor"]
+categories = ["development-tools"]
 
 [dependencies]
 eframe = "0.31.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+dirs = "6"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[package.metadata.bundle]
+name = "SUB-IDE"
+identifier = "org.subecosystem.sub-ide"
+icon = ["assets/icon_256x256.png", "assets/icon.ico", "assets/icon.icns"]
+version = "0.1.0"
+copyright = "2026 SUB Ecosystem"
+category = "Developer Tool"
+short_description = "Next-Gen Python & SUB IDE"
+
+[package.metadata.deb]
+maintainer = "SUB Ecosystem <sub@sub.org>"
+copyright = "2026 SUB Ecosystem"
+license-file = ["LICENSE", "0"]
+extended-description = "SUB-IDE is a high-performance, cross-platform IDE reconstructed from PyCharm Pro architecture in pure Rust."
+section = "devel"
+priority = "optional"
+assets = [
+    ["target/release/sub-ide", "usr/bin/sub-ide", "755"],
+    ["assets/icon_256x256.png", "usr/share/icons/hicolor/256x256/apps/sub-ide.png", "644"],
+    ["assets/logo.svg", "usr/share/icons/hicolor/scalable/apps/sub-ide.svg", "644"],
+    ["README.md", "usr/share/doc/sub-ide/README.md", "644"],
+]
+

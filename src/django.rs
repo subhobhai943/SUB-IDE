@@ -73,7 +73,8 @@ impl DjangoInspector {
                         if let Some(quote_start) = remainder.find(['\'', '"']) {
                             let after_quote = &remainder[quote_start + 1..];
                             if let Some(quote_end) = after_quote.find(['\'', '"']) {
-                                project.settings_module = Some(after_quote[..quote_end].to_string());
+                                project.settings_module =
+                                    Some(after_quote[..quote_end].to_string());
                             }
                         }
                     }
@@ -92,11 +93,10 @@ impl DjangoInspector {
             let trimmed = line.trim();
             // Look for path('pattern', view, name='name') or re_path(...)
             if trimmed.starts_with("path(") || trimmed.starts_with("re_path(") {
-                let inside = if trimmed.starts_with("path(") {
-                    &trimmed[5..]
-                } else {
-                    &trimmed[8..]
-                };
+                let inside = trimmed
+                    .strip_prefix("path(")
+                    .or_else(|| trimmed.strip_prefix("re_path("))
+                    .unwrap_or_default();
 
                 let mut parts = inside.split(',');
                 if let Some(raw_pattern) = parts.next() {
@@ -108,8 +108,8 @@ impl DjangoInspector {
                         // Check for name='...'
                         for part in parts {
                             let p_trim = part.trim();
-                            if p_trim.starts_with("name=") {
-                                let name_val = p_trim[5..].trim().trim_matches(['\'', '"', ')']);
+                            if let Some(name_val_raw) = p_trim.strip_prefix("name=") {
+                                let name_val = name_val_raw.trim().trim_matches(['\'', '"', ')']);
                                 route_name = Some(name_val.to_string());
                             }
                         }
@@ -169,7 +169,8 @@ impl DjangoInspector {
                 }
 
                 let class_name = trimmed[6..trimmed.find('(').unwrap()].trim().to_string();
-                let table_name = format!("{}_{}", app_name.to_lowercase(), class_name.to_lowercase());
+                let table_name =
+                    format!("{}_{}", app_name.to_lowercase(), class_name.to_lowercase());
 
                 current_model = Some(DjangoModel {
                     name: class_name,
@@ -181,7 +182,8 @@ impl DjangoInspector {
                 });
             } else if let Some(ref mut model) = current_model {
                 // Check if inside class indentation
-                if line.starts_with("    ") && trimmed.contains("models.") && trimmed.contains('=') {
+                if line.starts_with("    ") && trimmed.contains("models.") && trimmed.contains('=')
+                {
                     let mut parts = trimmed.split('=');
                     if let Some(field_name_raw) = parts.next() {
                         let field_name = field_name_raw.trim().to_string();
@@ -194,7 +196,12 @@ impl DjangoInspector {
                                 if let Some(start) = ft.find('(') {
                                     let arg_part = &ft[start + 1..];
                                     if let Some(comma_or_paren) = arg_part.find([',', ')']) {
-                                        related_model = Some(arg_part[..comma_or_paren].trim().trim_matches(['\'', '"']).to_string());
+                                        related_model = Some(
+                                            arg_part[..comma_or_paren]
+                                                .trim()
+                                                .trim_matches(['\'', '"'])
+                                                .to_string(),
+                                        );
                                     }
                                 }
                             }

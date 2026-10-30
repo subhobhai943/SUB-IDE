@@ -188,6 +188,12 @@ impl StubIndex {
     }
 }
 
+impl Default for StubIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SearchResult {
     Class(PyClassStub),

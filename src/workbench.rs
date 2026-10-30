@@ -4,7 +4,6 @@
 //! breakpoint markers, database & structure pane, dockable bottom tool windows
 //! (Run, DAP Debugger, Git VCS DAG, Data Wrangler, MCP Server), and status bar.
 
-
 /// Active bottom dock tool tab
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolWindowTab {
@@ -58,13 +57,36 @@ impl WorkbenchRenderer {
         screen.push_str(&format!("╠{}╣\n", line_bar));
 
         // 5. Tool Window Header Tabs
-        let t_run = if active_tab == ToolWindowTab::Run { "[>_ 1: Run]" } else { " >_ 1: Run " };
-        let t_dbg = if active_tab == ToolWindowTab::Debug { "[🐛 2: Debug (DAP)]" } else { " 🐛 2: Debug (DAP) " };
-        let t_git = if active_tab == ToolWindowTab::GitLog { "[🌿 3: Git Log]" } else { " 🌿 3: Git Log " };
-        let t_wrg = if active_tab == ToolWindowTab::DataWrangler { "[📊 4: Data Wrangler]" } else { " 📊 4: Data Wrangler " };
-        let t_sch = if active_tab == ToolWindowTab::SearchEverywhere { "[🔍 5: Search Everywhere]" } else { " 🔍 5: Search Everywhere " };
+        let t_run = if active_tab == ToolWindowTab::Run {
+            "[>_ 1: Run]"
+        } else {
+            " >_ 1: Run "
+        };
+        let t_dbg = if active_tab == ToolWindowTab::Debug {
+            "[🐛 2: Debug (DAP)]"
+        } else {
+            " 🐛 2: Debug (DAP) "
+        };
+        let t_git = if active_tab == ToolWindowTab::GitLog {
+            "[🌿 3: Git Log]"
+        } else {
+            " 🌿 3: Git Log "
+        };
+        let t_wrg = if active_tab == ToolWindowTab::DataWrangler {
+            "[📊 4: Data Wrangler]"
+        } else {
+            " 📊 4: Data Wrangler "
+        };
+        let t_sch = if active_tab == ToolWindowTab::SearchEverywhere {
+            "[🔍 5: Search Everywhere]"
+        } else {
+            " 🔍 5: Search Everywhere "
+        };
 
-        screen.push_str(&format!("║ {} {} {} {} {} ║\n", t_run, t_dbg, t_git, t_wrg, t_sch));
+        screen.push_str(&format!(
+            "║ {} {} {} {} {} ║\n",
+            t_run, t_dbg, t_git, t_wrg, t_sch
+        ));
         screen.push_str(&format!("╠{}╣\n", line_bar));
 
         // 6. Tool Window Content Panel based on active_tab
@@ -103,7 +125,7 @@ impl WorkbenchRenderer {
                 screen.push_str("║ 4. [File  ] user_guide.md         docs/user_guide.md                                             ║\n");
             }
             ToolWindowTab::Run => {
-                screen.push_str("║ /home/subhobhai943/Github/SUB-IDE/.venv/bin/python3 main.py                                      ║\n");
+                screen.push_str("║ /workspace/.venv/bin/python3 main.py                                      ║\n");
                 screen.push_str("║ >> [SUB-IDE Server] Listening on 127.0.0.1:8000 (Reload active)                                 ║\n");
                 screen.push_str("║ >> [Database] Connected to sqlite://:memory: (2 tables synchronized)                             ║\n");
                 screen.push_str("║ >> [MCP Server] Ready: 5 tools available for AI Assistant pair programming                       ║\n");

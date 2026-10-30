@@ -100,7 +100,10 @@ pub struct DataFrame {
 impl DataFrame {
     pub fn new(columns: Vec<(&str, DataType)>, rows: Vec<Vec<CellValue>>) -> Self {
         Self {
-            columns: columns.into_iter().map(|(n, t)| (n.to_string(), t)).collect(),
+            columns: columns
+                .into_iter()
+                .map(|(n, t)| (n.to_string(), t))
+                .collect(),
             rows,
             history: Vec::new(),
         }
@@ -110,7 +113,10 @@ impl DataFrame {
     pub fn from_csv(csv_str: &str) -> Result<Self, String> {
         let mut lines = csv_str.lines().filter(|l| !l.trim().is_empty());
         let header_line = lines.next().ok_or("Empty CSV data")?;
-        let col_names: Vec<String> = header_line.split(',').map(|s| s.trim().to_string()).collect();
+        let col_names: Vec<String> = header_line
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
 
         let mut raw_rows: Vec<Vec<String>> = Vec::new();
         for line in lines {
@@ -164,8 +170,14 @@ impl DataFrame {
                     row.push(CellValue::Null);
                 } else {
                     let cell = match columns[i].1 {
-                        DataType::Integer => v.parse::<i64>().map(CellValue::Integer).unwrap_or(CellValue::Null),
-                        DataType::Float => v.parse::<f64>().map(CellValue::Float).unwrap_or(CellValue::Null),
+                        DataType::Integer => v
+                            .parse::<i64>()
+                            .map(CellValue::Integer)
+                            .unwrap_or(CellValue::Null),
+                        DataType::Float => v
+                            .parse::<f64>()
+                            .map(CellValue::Float)
+                            .unwrap_or(CellValue::Null),
                         DataType::Boolean => CellValue::Boolean(v == "true"),
                         DataType::String => CellValue::String(v.clone()),
                     };
@@ -197,7 +209,7 @@ impl DataFrame {
             let mut numeric_vals = Vec::new();
 
             for row in &self.rows {
-                let cell = &row[idx];
+                let cell = row.get(idx).cloned().unwrap_or(CellValue::Null);
                 if !cell.is_null() {
                     non_null += 1;
                     unique_vals.insert(cell.to_display_string());
@@ -208,7 +220,11 @@ impl DataFrame {
             }
 
             let missing = total - non_null;
-            let missing_pct = if total > 0 { (missing as f64 / total as f64) * 100.0 } else { 0.0 };
+            let missing_pct = if total > 0 {
+                (missing as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            };
 
             let (min, max, mean, median, std_dev) = if !numeric_vals.is_empty() {
                 numeric_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -219,9 +235,12 @@ impl DataFrame {
                 let median = if numeric_vals.len() % 2 == 1 {
                     numeric_vals[numeric_vals.len() / 2]
                 } else {
-                    (numeric_vals[numeric_vals.len() / 2 - 1] + numeric_vals[numeric_vals.len() / 2]) / 2.0
+                    (numeric_vals[numeric_vals.len() / 2 - 1]
+                        + numeric_vals[numeric_vals.len() / 2])
+                        / 2.0
                 };
-                let variance = numeric_vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / numeric_vals.len() as f64;
+                let variance = numeric_vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>()
+                    / numeric_vals.len() as f64;
                 let std = variance.sqrt();
                 (Some(min), Some(max), Some(mean), Some(median), Some(std))
             } else {
@@ -242,7 +261,11 @@ impl DataFrame {
                         .into_iter()
                         .enumerate()
                         .map(|(b, count)| {
-                            let label = format!("{:.0}-{:.0}", lo + b as f64 * step, lo + (b + 1) as f64 * step);
+                            let label = format!(
+                                "{:.0}-{:.0}",
+                                lo + b as f64 * step,
+                                lo + (b + 1) as f64 * step
+                            );
                             (label, count)
                         })
                         .collect()
@@ -275,10 +298,12 @@ impl DataFrame {
 
     /// Filters rows by condition
     pub fn filter(&mut self, col_name: &str, op: FilterOp) -> Result<&mut Self, String> {
-        let idx = self.column_index(col_name).ok_or_else(|| format!("Unknown column '{}'", col_name))?;
+        let idx = self
+            .column_index(col_name)
+            .ok_or_else(|| format!("Unknown column '{}'", col_name))?;
 
         self.rows.retain(|row| {
-            let cell = &row[idx];
+            let cell = row.get(idx).cloned().unwrap_or(CellValue::Null);
             match &op {
                 FilterOp::GreaterThan(limit) => cell.as_f64().map(|v| v > *limit).unwrap_or(false),
                 FilterOp::LessThan(limit) => cell.as_f64().map(|v| v < *limit).unwrap_or(false),
@@ -298,20 +323,30 @@ impl DataFrame {
 
     /// Sorts DataFrame by column
     pub fn sort_by(&mut self, col_name: &str, ascending: bool) -> Result<&mut Self, String> {
-        let idx = self.column_index(col_name).ok_or_else(|| format!("Unknown column '{}'", col_name))?;
+        let idx = self
+            .column_index(col_name)
+            .ok_or_else(|| format!("Unknown column '{}'", col_name))?;
 
         self.rows.sort_by(|a, b| {
-            let cmp = match (&a[idx], &b[idx]) {
+            let ca = a.get(idx).cloned().unwrap_or(CellValue::Null);
+            let cb = b.get(idx).cloned().unwrap_or(CellValue::Null);
+            let cmp = match (&ca, &cb) {
                 (CellValue::Null, CellValue::Null) => std::cmp::Ordering::Equal,
                 (CellValue::Null, _) => std::cmp::Ordering::Greater,
                 (_, CellValue::Null) => std::cmp::Ordering::Less,
                 (CellValue::Integer(x), CellValue::Integer(y)) => x.cmp(y),
-                (CellValue::Float(x), CellValue::Float(y)) => x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
+                (CellValue::Float(x), CellValue::Float(y)) => {
+                    x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal)
+                }
                 (CellValue::String(x), CellValue::String(y)) => x.cmp(y),
                 (CellValue::Boolean(x), CellValue::Boolean(y)) => x.cmp(y),
-                _ => a[idx].to_display_string().cmp(&b[idx].to_display_string()),
+                _ => ca.to_display_string().cmp(&cb.to_display_string()),
             };
-            if ascending { cmp } else { cmp.reverse() }
+            if ascending {
+                cmp
+            } else {
+                cmp.reverse()
+            }
         });
 
         self.history.push(TransformationStep::Sort {
@@ -347,7 +382,10 @@ impl DataFrame {
                         script.push_str(&format!("    df = df[df['{}'] == '{}']\n", column, s));
                     }
                     FilterOp::Contains(s) => {
-                        script.push_str(&format!("    df = df[df['{}'].astype(str).str.contains('{}')]\n", column, s));
+                        script.push_str(&format!(
+                            "    df = df[df['{}'].astype(str).str.contains('{}')]\n",
+                            column, s
+                        ));
                     }
                     FilterOp::NotNull => {
                         script.push_str(&format!("    df = df[df['{}'].notna()]\n", column));
@@ -364,7 +402,10 @@ impl DataFrame {
                     script.push_str(&format!("    df = df.dropna(subset=['{}'])\n", column));
                 }
                 TransformationStep::FillNulls { column, value } => {
-                    script.push_str(&format!("    df['{}'] = df['{}'].fillna({})\n", column, column, value));
+                    script.push_str(&format!(
+                        "    df['{}'] = df['{}'].fillna({})\n",
+                        column, column, value
+                    ));
                 }
             }
         }
@@ -377,36 +418,61 @@ impl DataFrame {
         let mut out = String::new();
         let stats = self.compute_stats();
 
-        out.push_str("┌─── PyCharm Data Wrangler Grid ──────────────────────────────────────────────┐\n");
+        out.push_str(
+            "┌─── PyCharm Data Wrangler Grid ──────────────────────────────────────────────┐\n",
+        );
         // Column names & types
         out.push_str("│ Columns: ");
         for (name, dt) in &self.columns {
             out.push_str(&format!("{}: {:?} | ", name, dt));
         }
-        out.push_str("\n│ ── Statistics Header ────────────────────────────────────────────────────────\n");
+        out.push_str(
+            "\n│ ── Statistics Header ────────────────────────────────────────────────────────\n",
+        );
         for st in &stats {
-            let mean_str = st.mean.map(|m| format!("mean: {:.1}, ", m)).unwrap_or_default();
+            let mean_str = st
+                .mean
+                .map(|m| format!("mean: {:.1}, ", m))
+                .unwrap_or_default();
             let min_max = match (st.min, st.max) {
                 (Some(lo), Some(hi)) => format!("range: [{:.0}..{:.0}], ", lo, hi),
                 _ => String::new(),
             };
             out.push_str(&format!(
                 "│ [{}] total: {}, non-null: {}, missing: {:.1}%, {}{}{}\n",
-                st.name, st.total_count, st.non_null_count, st.missing_pct, min_max, mean_str,
+                st.name,
+                st.total_count,
+                st.non_null_count,
+                st.missing_pct,
+                min_max,
+                mean_str,
                 if !st.histogram.is_empty() {
-                    let bins = st.histogram.iter().map(|(l, c)| format!("{}:{}", l, c)).collect::<Vec<_>>().join(" ");
+                    let bins = st
+                        .histogram
+                        .iter()
+                        .map(|(l, c)| format!("{}:{}", l, c))
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     format!("hist: [{}]", bins)
                 } else {
                     String::new()
                 }
             ));
         }
-        out.push_str("│ ── Data Rows (preview) ─────────────────────────────────────────────────────\n");
+        out.push_str(
+            "│ ── Data Rows (preview) ─────────────────────────────────────────────────────\n",
+        );
         for (r_idx, row) in self.rows.iter().take(5).enumerate() {
-            let line = row.iter().map(|c| c.to_display_string()).collect::<Vec<_>>().join(" | ");
+            let line = row
+                .iter()
+                .map(|c| c.to_display_string())
+                .collect::<Vec<_>>()
+                .join(" | ");
             out.push_str(&format!("│ {:>2}: {}\n", r_idx + 1, line));
         }
-        out.push_str("└─────────────────────────────────────────────────────────────────────────────┘\n");
+        out.push_str(
+            "└─────────────────────────────────────────────────────────────────────────────┘\n",
+        );
         out
     }
 }

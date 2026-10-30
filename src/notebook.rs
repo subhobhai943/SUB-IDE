@@ -87,7 +87,11 @@ impl NotebookManager {
     }
 
     /// Execute a code cell using a local Python process and capture outputs
-    pub fn execute_code_cell(python_bin: &Path, code: &str, count: u64) -> (Option<u64>, Vec<CellOutput>) {
+    pub fn execute_code_cell(
+        python_bin: &Path,
+        code: &str,
+        count: u64,
+    ) -> (Option<u64>, Vec<CellOutput>) {
         let mut outputs = Vec::new();
 
         let res = std::process::Command::new(python_bin)

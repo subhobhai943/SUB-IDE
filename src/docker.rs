@@ -27,7 +27,11 @@ impl DockerManager {
         let compose1 = root.join("docker-compose.yml");
         let compose2 = root.join("compose.yaml");
 
-        let dockerfile_path = if dockerfile.exists() { Some(dockerfile) } else { None };
+        let dockerfile_path = if dockerfile.exists() {
+            Some(dockerfile)
+        } else {
+            None
+        };
         let compose_file_path = if compose1.exists() {
             Some(compose1)
         } else if compose2.exists() {
@@ -61,7 +65,11 @@ impl DockerManager {
 
     pub fn list_containers() -> Result<Vec<DockerContainer>, String> {
         let output = std::process::Command::new("docker")
-            .args(["ps", "--format", "{{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"])
+            .args([
+                "ps",
+                "--format",
+                "{{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}",
+            ])
             .output()
             .map_err(|e| format!("Failed to run docker ps: {}", e))?;
 
@@ -92,7 +100,9 @@ impl DockerManager {
         cmd.args(["exec", container_id]);
         cmd.args(command);
 
-        let output = cmd.output().map_err(|e| format!("Failed to exec in container: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to exec in container: {}", e))?;
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {

@@ -139,7 +139,10 @@ impl PythonDebugger {
 
     /// Gets all breakpoints configured for a file
     pub fn get_breakpoints(&self, file_path: &str) -> &[Breakpoint] {
-        self.breakpoints.get(file_path).map(|v| v.as_slice()).unwrap_or(&[])
+        self.breakpoints
+            .get(file_path)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Clears breakpoints for a file
@@ -215,7 +218,12 @@ impl PythonDebugger {
 
     /// Step Over to next line
     pub fn step_over(&mut self) {
-        if let DebuggerState::Paused { thread_id, ref frame, .. } = self.state {
+        if let DebuggerState::Paused {
+            thread_id,
+            ref frame,
+            ..
+        } = self.state
+        {
             let next_line = frame.line + 1;
             let updated_frame = StackFrame {
                 id: frame.id,
@@ -250,12 +258,21 @@ impl PythonDebugger {
 
     /// Inspect variables for frame
     pub fn get_variables(&self, frame_id: i64) -> &[Variable] {
-        self.variables.get(&frame_id).map(|v| v.as_slice()).unwrap_or(&[])
+        self.variables
+            .get(&frame_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Current debugger status
     pub fn state(&self) -> &DebuggerState {
         &self.state
+    }
+}
+
+impl Default for PythonDebugger {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -285,11 +302,16 @@ mod tests {
         assert_eq!(dbg.get_breakpoints(file).len(), 2);
 
         // Breakpoint hit simulation
-        let hit = dbg.simulate_breakpoint_hit(file, 10, "calculate_metrics", vec![
-            ("count", "42", "int"),
-            ("rate", "3.14", "float"),
-            ("status", "'OK'", "str"),
-        ]);
+        let hit = dbg.simulate_breakpoint_hit(
+            file,
+            10,
+            "calculate_metrics",
+            vec![
+                ("count", "42", "int"),
+                ("rate", "3.14", "float"),
+                ("status", "'OK'", "str"),
+            ],
+        );
         assert!(hit);
 
         if let DebuggerState::Paused { frame, .. } = dbg.state() {

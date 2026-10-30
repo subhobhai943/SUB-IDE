@@ -73,15 +73,47 @@ impl SearchEverywhere {
     fn register_default_actions(&mut self) {
         let actions = vec![
             ("Run Application", "Run the active Python file", "Shift+F10"),
-            ("Debug Application", "Start Python DAP debugger session", "Shift+F9"),
+            (
+                "Debug Application",
+                "Start Python DAP debugger session",
+                "Shift+F9",
+            ),
             ("Git: Commit...", "Open Git Commit tool window", "Ctrl+K"),
-            ("Git: Push...", "Push current branch to origin", "Ctrl+Shift+K"),
-            ("Git: Update Project", "Pull and rebase upstream commits", "Ctrl+T"),
-            ("Database: New Query Console", "Open SQL Console with ER diagram", "Ctrl+Shift+Q"),
-            ("Data Wrangler: Profile Table", "Inspect DataFrame statistics & histogram", "Alt+Shift+W"),
-            ("Reformat Code (Black/Ruff)", "Format code according to PEP 8", "Ctrl+Alt+L"),
-            ("Optimize Imports", "Sort and prune unused Python imports", "Ctrl+Alt+O"),
-            ("Terminal: Open New Session", "Open embedded interactive shell", "Alt+F12"),
+            (
+                "Git: Push...",
+                "Push current branch to origin",
+                "Ctrl+Shift+K",
+            ),
+            (
+                "Git: Update Project",
+                "Pull and rebase upstream commits",
+                "Ctrl+T",
+            ),
+            (
+                "Database: New Query Console",
+                "Open SQL Console with ER diagram",
+                "Ctrl+Shift+Q",
+            ),
+            (
+                "Data Wrangler: Profile Table",
+                "Inspect DataFrame statistics & histogram",
+                "Alt+Shift+W",
+            ),
+            (
+                "Reformat Code (Black/Ruff)",
+                "Format code according to PEP 8",
+                "Ctrl+Alt+L",
+            ),
+            (
+                "Optimize Imports",
+                "Sort and prune unused Python imports",
+                "Ctrl+Alt+O",
+            ),
+            (
+                "Terminal: Open New Session",
+                "Open embedded interactive shell",
+                "Alt+F12",
+            ),
             ("Search Everywhere", "Double Shift popup", "Shift Shift"),
         ];
 
@@ -106,7 +138,7 @@ impl SearchEverywhere {
 
     pub fn add_file(&mut self, path: &str) {
         self.files.push(SearchItem {
-            title: path.split('/').last().unwrap_or(path).to_string(),
+            title: path.split('/').next_back().unwrap_or(path).to_string(),
             location: path.to_string(),
             category: ItemCategory::File,
             shortcut: None,
@@ -117,7 +149,11 @@ impl SearchEverywhere {
         self.symbols.push(SearchItem {
             title: name.to_string(),
             location: format!("{}:{}", file, line),
-            category: if is_method { ItemCategory::Method } else { ItemCategory::Function },
+            category: if is_method {
+                ItemCategory::Method
+            } else {
+                ItemCategory::Function
+            },
             shortcut: None,
         });
     }
@@ -163,7 +199,10 @@ impl SearchEverywhere {
         }
 
         // Word boundary match (e.g. "data_wrangler" matching "wrangler")
-        if target.split('_').any(|part| part.to_lowercase().starts_with(&q)) {
+        if target
+            .split('_')
+            .any(|part| part.to_lowercase().starts_with(&q))
+        {
             return Some(65);
         }
 
@@ -263,7 +302,7 @@ impl SearchEverywhere {
         }
 
         // Sort descending by score
-        candidates.sort_by(|a, b| b.score.cmp(&a.score));
+        candidates.sort_by_key(|r| std::cmp::Reverse(r.score));
         candidates.truncate(max_results);
         candidates
     }
@@ -283,7 +322,9 @@ impl SearchEverywhere {
         out.push_str(&format!("│ Tab: {:<12} Query: \"{}\"\n", tab_name, query));
         out.push_str("├─────────────────────────────────────────────────────────────────────┤\n");
         if results.is_empty() {
-            out.push_str("│ No results found.                                                   │\n");
+            out.push_str(
+                "│ No results found.                                                   │\n",
+            );
         } else {
             for (idx, r) in results.iter().enumerate() {
                 let cat_badge = match r.item.category {
@@ -294,15 +335,30 @@ impl SearchEverywhere {
                     ItemCategory::Action => "Action",
                     ItemCategory::TextMatch => "Text  ",
                 };
-                let shortcut_str = r.item.shortcut.as_ref().map(|s| format!(" ({})", s)).unwrap_or_default();
+                let shortcut_str = r
+                    .item
+                    .shortcut
+                    .as_ref()
+                    .map(|s| format!(" ({})", s))
+                    .unwrap_or_default();
                 out.push_str(&format!(
                     "│ {:>2}. [{}] {:<24} {:<24}{}\n",
-                    idx + 1, cat_badge, r.item.title, r.item.location, shortcut_str
+                    idx + 1,
+                    cat_badge,
+                    r.item.title,
+                    r.item.location,
+                    shortcut_str
                 ));
             }
         }
         out.push_str("└─────────────────────────────────────────────────────────────────────┘\n");
         out
+    }
+}
+
+impl Default for SearchEverywhere {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -312,10 +368,19 @@ mod tests {
 
     #[test]
     fn test_search_scoring_and_acronyms() {
-        assert_eq!(SearchEverywhere::compute_score("UserModel", "UserModel"), Some(100));
-        assert_eq!(SearchEverywhere::compute_score("user", "UserModel"), Some(85));
+        assert_eq!(
+            SearchEverywhere::compute_score("UserModel", "UserModel"),
+            Some(100)
+        );
+        assert_eq!(
+            SearchEverywhere::compute_score("user", "UserModel"),
+            Some(85)
+        );
         assert_eq!(SearchEverywhere::compute_score("um", "UserModel"), Some(75));
-        assert_eq!(SearchEverywhere::compute_score("model", "UserModel"), Some(50));
+        assert_eq!(
+            SearchEverywhere::compute_score("model", "UserModel"),
+            Some(50)
+        );
     }
 
     #[test]

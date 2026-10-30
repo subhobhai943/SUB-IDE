@@ -1,7 +1,9 @@
 pub mod buffer;
+pub mod config;
 pub mod dap;
 pub mod data_wrangler;
 pub mod database;
+pub mod desktop_gui;
 pub mod django;
 pub mod docker;
 pub mod http_client;
@@ -14,7 +16,6 @@ pub mod sdk;
 pub mod search_everywhere;
 pub mod stub_index;
 pub mod vcs_git;
-pub mod desktop_gui;
 pub mod vfs;
 pub mod workbench;
 
@@ -40,16 +41,24 @@ use std::path::{Path, PathBuf};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let has_display = std::env::var("DISPLAY").is_ok();
-    let is_cli_mode = args.iter().any(|a| a == "--cli" || a == "--headless" || a == "--test-run");
+    let is_cli_mode = args
+        .iter()
+        .any(|a| a == "--cli" || a == "--headless" || a == "--test-run");
 
     // Launch Native Desktop GUI if running in X11 / Wayland environment unless CLI is explicitly requested
     if (has_display && !is_cli_mode) || args.iter().any(|a| a == "--gui") {
         println!("============================================================");
         println!("  SUB-IDE (Pro Edition): Launching Native Desktop GUI Window  ");
-        println!("  Running on X11 Display: {:?}", std::env::var("DISPLAY").unwrap_or_default());
+        println!(
+            "  Running on X11 Display: {:?}",
+            std::env::var("DISPLAY").unwrap_or_default()
+        );
         println!("============================================================\n");
         if let Err(e) = desktop_gui::run_desktop_gui() {
-            eprintln!("Failed to launch desktop GUI: {}. Falling back to CLI mode.", e);
+            eprintln!(
+                "Failed to launch desktop GUI: {}. Falling back to CLI mode.",
+                e
+            );
         } else {
             return;
         }
@@ -79,7 +88,10 @@ fn main() {
     let mut vfs = VirtualFileSystem::new();
     println!("   - Initialized In-Memory Virtual File System (VFS)");
     let watch_cmd = vfs.format_fsnotifier_watch_command();
-    println!("   - Formatted fsnotifier watch command: {:?}", watch_cmd.trim());
+    println!(
+        "   - Formatted fsnotifier watch command: {:?}",
+        watch_cmd.trim()
+    );
     vfs.apply_fsnotifier_event("CREATE", "/test/project/main.py");
     vfs.apply_fsnotifier_event("STATS", "/test/project/main.py");
     println!("   - Handled CREATE & STATS events over fsnotifier wire protocol\n");
@@ -99,24 +111,39 @@ class UserModel:
 "#;
     let mut parser = PythonParser::new(sample_code);
     let py_file = parser.parse_file("models");
-    println!("   - Parsed Python AST into PSI tree: {} classes detected", py_file.classes.len());
+    println!(
+        "   - Parsed Python AST into PSI tree: {} classes detected",
+        py_file.classes.len()
+    );
 
     let mut stub_index = StubIndex::new();
     stub_index.index_py_file(PathBuf::from("/test/models.py"), &py_file);
     let (c_count, f_count) = stub_index.total_symbols();
     let search_res = stub_index.search_everywhere("User");
-    println!("   - Stub Index: {} classes, {} functions indexed in sub-milliseconds", c_count, f_count);
-    println!("   - Stub Index search for 'User': {} results found", search_res.len());
+    println!(
+        "   - Stub Index: {} classes, {} functions indexed in sub-milliseconds",
+        c_count, f_count
+    );
+    println!(
+        "   - Stub Index search for 'User': {} results found",
+        search_res.len()
+    );
 
     let mut buffer = EditorBuffer::new("def main():\n    pass\n");
     buffer.insert_at(12, "\n    print('Hello')");
     buffer.undo();
     buffer.redo();
-    println!("   - Fleet Andel Editor Buffer: Transactional Undo/Redo verified ({} lines)\n", buffer.line_count());
+    println!(
+        "   - Fleet Andel Editor Buffer: Transactional Undo/Redo verified ({} lines)\n",
+        buffer.line_count()
+    );
 
     let sdks = SdkDetector::detect_sdks(".");
-    println!("   - Python SDK Discovery: Found {} environment(s) (Active: {:?})\n",
-        sdks.len(), sdks.first().map(|s| &s.name).unwrap_or(&"none".to_string()));
+    println!(
+        "   - Python SDK Discovery: Found {} environment(s) (Active: {:?})\n",
+        sdks.len(),
+        sdks.first().map(|s| &s.name).unwrap_or(&"none".to_string())
+    );
 
     // ---------------------------------------------------------
     // 3. Pro Feature: Django & Web Framework Suite
@@ -130,8 +157,14 @@ path('api/v1/users/<int:pk>/', views.user_detail, name='user_detail'),
     let routes = DjangoInspector::parse_urls(sample_urls, Path::new("urls.py"));
     println!("   - URL Routing & View Navigation:");
     for r in &routes {
-        println!("     * [{}] Route '{}' -> Target: {} (name: {:?}) at line {}",
-            r.http_method, r.pattern, r.view_target, r.name.as_deref().unwrap_or("-"), r.line_number);
+        println!(
+            "     * [{}] Route '{}' -> Target: {} (name: {:?}) at line {}",
+            r.http_method,
+            r.pattern,
+            r.view_target,
+            r.name.as_deref().unwrap_or("-"),
+            r.line_number
+        );
     }
 
     let sample_models = r#"
@@ -148,8 +181,12 @@ class Post(models.Model):
     let models = DjangoInspector::parse_models(sample_models, Path::new("models.py"), "blog");
     println!("   - Django ORM Models Extracted:");
     for m in &models {
-        println!("     * Model '{}' -> DB Table: '{}' ({} fields)",
-            m.name, m.table_name, m.fields.len());
+        println!(
+            "     * Model '{}' -> DB Table: '{}' ({} fields)",
+            m.name,
+            m.table_name,
+            m.fields.len()
+        );
     }
     println!();
 
@@ -159,13 +196,17 @@ class Post(models.Model):
     println!("4. [PyCharm Pro: Database Tools & SQL Console]");
     let mut db_manager = DatabaseManager::new(DatabaseDialect::Sqlite, ":memory:");
     for m in &models {
-        let cols = m.fields.iter().map(|f| TableColumn {
-            name: f.name.clone(),
-            data_type: f.field_type.clone(),
-            is_nullable: true,
-            is_primary_key: f.name == "id",
-            default_value: None,
-        }).collect();
+        let cols = m
+            .fields
+            .iter()
+            .map(|f| TableColumn {
+                name: f.name.clone(),
+                data_type: f.field_type.clone(),
+                is_nullable: true,
+                is_primary_key: f.name == "id",
+                default_value: None,
+            })
+            .collect();
         db_manager.register_table(DatabaseTable {
             schema: "main".to_string(),
             name: m.table_name.clone(),
@@ -189,7 +230,10 @@ class Post(models.Model):
             NotebookCell {
                 id: Some("cell-1".to_string()),
                 cell_type: CellType::Markdown,
-                source: vec!["# Machine Learning Pipeline\n".to_string(), "Explore training set:".to_string()],
+                source: vec![
+                    "# Machine Learning Pipeline\n".to_string(),
+                    "Explore training set:".to_string(),
+                ],
                 execution_count: None,
                 outputs: vec![],
                 metadata: std::collections::HashMap::new(),
@@ -197,7 +241,10 @@ class Post(models.Model):
             NotebookCell {
                 id: Some("cell-2".to_string()),
                 cell_type: CellType::Code,
-                source: vec!["import math\n".to_string(), "print(f'PI value: {math.pi}')".to_string()],
+                source: vec![
+                    "import math\n".to_string(),
+                    "print(f'PI value: {math.pi}')".to_string(),
+                ],
                 execution_count: None,
                 outputs: vec![],
                 metadata: std::collections::HashMap::new(),
@@ -217,8 +264,11 @@ class Post(models.Model):
         "import math\nprint(f'PI value: {math.pi}')",
         1,
     );
-    println!("   - Executed Cell [{}]: {} output stream(s) generated\n",
-        cnt.unwrap_or(0), outputs.len());
+    println!(
+        "   - Executed Cell [{}]: {} output stream(s) generated\n",
+        cnt.unwrap_or(0),
+        outputs.len()
+    );
 
     // ---------------------------------------------------------
     // 6. Pro Feature: REST & HTTP Client (.http)
@@ -237,10 +287,18 @@ Content-Type: application/json
 {"title": "Hello from Rust"}
 "#;
     let requests = HttpFileParser::parse_file(sample_http);
-    println!("   - Parsed {} HTTP Request(s) from .http script:", requests.len());
+    println!(
+        "   - Parsed {} HTTP Request(s) from .http script:",
+        requests.len()
+    );
     for req in &requests {
-        println!("     * [{}] {} (Headers: {}, Body: {})",
-            req.method, req.url, req.headers.len(), req.body.is_some());
+        println!(
+            "     * [{}] {} (Headers: {}, Body: {})",
+            req.method,
+            req.url,
+            req.headers.len(),
+            req.body.is_some()
+        );
     }
     println!();
 
@@ -249,8 +307,14 @@ Content-Type: application/json
     // ---------------------------------------------------------
     println!("7. [PyCharm Pro: Docker & Container Environments]");
     let docker_env = DockerManager::inspect_project(".");
-    println!("   - Docker Daemon Active: {}", docker_env.is_docker_available);
-    println!("   - Discovered Active Containers: {}\n", docker_env.active_containers.len());
+    println!(
+        "   - Docker Daemon Active: {}",
+        docker_env.is_docker_available
+    );
+    println!(
+        "   - Discovered Active Containers: {}\n",
+        docker_env.active_containers.len()
+    );
 
     // ---------------------------------------------------------
     // 8. Pro Feature: Python Debug Adapter Protocol (DAP)
@@ -258,21 +322,38 @@ Content-Type: application/json
     println!("8. [PyCharm Pro: Python Debug Adapter Protocol (DAP)]");
     let mut debugger = PythonDebugger::new();
     let init_ack = debugger.initialize();
-    println!("   - DAP Handshake initialized (supportsFunctionBreakpoints: {:?})",
-        init_ack.body.as_ref().and_then(|b| b.get("supportsFunctionBreakpoints")));
+    println!(
+        "   - DAP Handshake initialized (supportsFunctionBreakpoints: {:?})",
+        init_ack
+            .body
+            .as_ref()
+            .and_then(|b| b.get("supportsFunctionBreakpoints"))
+    );
 
     let app_py = "/workspace/app.py";
     let bps = debugger.set_breakpoints(app_py, &[15, 28]);
-    println!("   - Set {} verified breakpoint(s) on '{}'", bps.len(), app_py);
+    println!(
+        "   - Set {} verified breakpoint(s) on '{}'",
+        bps.len(),
+        app_py
+    );
 
-    let hit = debugger.simulate_breakpoint_hit(app_py, 15, "process_order", vec![
-        ("order_id", "1094", "int"),
-        ("total", "149.99", "float"),
-        ("user", "'alice'", "str"),
-    ]);
+    let hit = debugger.simulate_breakpoint_hit(
+        app_py,
+        15,
+        "process_order",
+        vec![
+            ("order_id", "1094", "int"),
+            ("total", "149.99", "float"),
+            ("user", "'alice'", "str"),
+        ],
+    );
     if hit {
         if let DebuggerState::Paused { frame, .. } = debugger.state() {
-            println!("   - Breakpoint HIT at {}:{} in '{}()'", frame.file_path, frame.line, frame.name);
+            println!(
+                "   - Breakpoint HIT at {}:{} in '{}()'",
+                frame.file_path, frame.line, frame.name
+            );
             let vars = debugger.get_variables(frame.id);
             println!("   - Stack Frame Variables ({}):", vars.len());
             for v in vars {
@@ -281,7 +362,10 @@ Content-Type: application/json
         }
     }
     debugger.step_over();
-    println!("   - Stepped Over -> Active state: {:?}\n", debugger.state());
+    println!(
+        "   - Stepped Over -> Active state: {:?}\n",
+        debugger.state()
+    );
 
     // ---------------------------------------------------------
     // 9. Pro Feature: Git VCS Integration & Visual DAG Log
@@ -329,10 +413,14 @@ Eve,29,195.00,true";
     let grid_view = df.render_summary_grid();
     println!("{}", grid_view);
 
-    df.filter("purchase_amount", FilterOp::GreaterThan(100.0)).unwrap();
+    df.filter("purchase_amount", FilterOp::GreaterThan(100.0))
+        .unwrap();
     df.sort_by("purchase_amount", false).unwrap();
     let generated_code = df.generate_python_script();
-    println!("   - Generated Reproducible Pandas Code:\n{}", generated_code);
+    println!(
+        "   - Generated Reproducible Pandas Code:\n{}",
+        generated_code
+    );
 
     // ---------------------------------------------------------
     // 11. Signature Feature: Double-Shift Search Everywhere
@@ -439,7 +527,10 @@ class Item(models.Model):
         assert_eq!(reqs.len(), 1);
         assert_eq!(reqs[0].method, "GET");
         assert_eq!(reqs[0].url, "https://api.test.com/data");
-        assert_eq!(reqs[0].headers.get("Header-Key").map(|s| s.as_str()), Some("Value"));
+        assert_eq!(
+            reqs[0].headers.get("Header-Key").map(|s| s.as_str()),
+            Some("Value")
+        );
     }
 
     #[test]

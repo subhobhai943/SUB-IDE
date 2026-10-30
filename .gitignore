@@ -7,4 +7,5 @@ __pycache__/
 sub_ide_rust_exec*
 sub_ide_c_exec*
 sub_ide_cpp_exec*
-.ruff_cache/
+/commandcode/
+.commandcode/

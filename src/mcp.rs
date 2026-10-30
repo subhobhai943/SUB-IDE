@@ -43,7 +43,9 @@ impl IdeMcpServer {
         vec![
             McpToolInfo {
                 name: "ide_list_files".to_string(),
-                description: "List all indexed files and directories in the IDE Virtual File System".to_string(),
+                description:
+                    "List all indexed files and directories in the IDE Virtual File System"
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {}
@@ -51,7 +53,8 @@ impl IdeMcpServer {
             },
             McpToolInfo {
                 name: "ide_find_symbol".to_string(),
-                description: "Search for classes, methods, or functions using the IDE Stub Index".to_string(),
+                description: "Search for classes, methods, or functions using the IDE Stub Index"
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -62,7 +65,8 @@ impl IdeMcpServer {
             },
             McpToolInfo {
                 name: "ide_django_routes".to_string(),
-                description: "List all detected Django, Flask, or FastAPI URL routes and views".to_string(),
+                description: "List all detected Django, Flask, or FastAPI URL routes and views"
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {}
@@ -70,7 +74,9 @@ impl IdeMcpServer {
             },
             McpToolInfo {
                 name: "ide_database_tables".to_string(),
-                description: "List all database tables, columns, and ER relationships from the Database Tool".to_string(),
+                description:
+                    "List all database tables, columns, and ER relationships from the Database Tool"
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {}
@@ -78,7 +84,8 @@ impl IdeMcpServer {
             },
             McpToolInfo {
                 name: "ide_execute_sql".to_string(),
-                description: "Execute a SQL statement on the connected project database".to_string(),
+                description: "Execute a SQL statement on the connected project database"
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -134,7 +141,11 @@ impl IdeMcpServer {
                         }]
                     }),
                     "ide_find_symbol" => {
-                        let q = params.get("arguments").and_then(|a| a.get("query")).and_then(|v| v.as_str()).unwrap_or("");
+                        let q = params
+                            .get("arguments")
+                            .and_then(|a| a.get("query"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
                         serde_json::json!({
                             "content": [{
                                 "type": "text",

@@ -533,7 +533,10 @@ impl<'a> PythonIndentingLexer<'a> {
                         num_str.push(c);
                     }
                     self.advance();
-                } else if c == '.' && !is_float && self.peek_next().map_or(false, |n| n.is_ascii_digit()) {
+                } else if c == '.'
+                    && !is_float
+                    && self.peek_next().is_some_and(|n| n.is_ascii_digit())
+                {
                     is_float = true;
                     num_str.push(c);
                     self.advance();

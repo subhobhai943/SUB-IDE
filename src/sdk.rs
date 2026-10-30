@@ -54,7 +54,8 @@ impl SdkDetector {
         if let Ok(conda_prefix) = std::env::var("CONDA_PREFIX") {
             let conda_bin = PathBuf::from(conda_prefix).join("bin").join("python");
             if conda_bin.exists() {
-                if let Some(sdk) = Self::probe_python("conda: active", SdkFlavor::Conda, &conda_bin) {
+                if let Some(sdk) = Self::probe_python("conda: active", SdkFlavor::Conda, &conda_bin)
+                {
                     sdks.push(sdk);
                 }
             }
@@ -62,14 +63,26 @@ impl SdkDetector {
 
         // 3. Check for System Python
         for sys_cmd in &["python3", "python"] {
-            if let Ok(output) = Command::new("which").arg(sys_cmd).output() {
+            let lookup = if cfg!(target_os = "windows") {
+                "where"
+            } else {
+                "which"
+            };
+            if let Ok(output) = Command::new(lookup).arg(sys_cmd).output() {
                 if output.status.success() {
-                    let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    let path_str = String::from_utf8_lossy(&output.stdout)
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
                     let bin_path = PathBuf::from(path_str);
                     if bin_path.exists() && !sdks.iter().any(|s| s.binary_path == bin_path) {
-                        if let Some(sdk) =
-                            Self::probe_python(&format!("system: {}", sys_cmd), SdkFlavor::System, &bin_path)
-                        {
+                        if let Some(sdk) = Self::probe_python(
+                            &format!("system: {}", sys_cmd),
+                            SdkFlavor::System,
+                            &bin_path,
+                        ) {
                             sdks.push(sdk);
                         }
                     }
@@ -84,12 +97,11 @@ impl SdkDetector {
     fn probe_python(name: &str, flavor: SdkFlavor, binary_path: &Path) -> Option<PythonSdk> {
         let version_output = Command::new(binary_path).arg("--version").output().ok()?;
         let version_str = String::from_utf8_lossy(&version_output.stdout);
-        let version = version_str.trim().to_string();
+        let mut version = version_str.trim().to_string();
         if version.is_empty() {
             let stderr_str = String::from_utf8_lossy(&version_output.stderr);
-            if !stderr_str.is_empty() {
-                // Older pythons output version to stderr
-                version_str.to_string();
+            if !stderr_str.trim().is_empty() {
+                version = stderr_str.trim().to_string();
             }
         }
 

@@ -32,7 +32,9 @@ impl HttpFileParser {
             let trimmed = line.trim();
             if trimmed.starts_with("###") {
                 if !current_lines.is_empty() {
-                    if let Some(req) = Self::parse_single_request(current_name.take(), &current_lines) {
+                    if let Some(req) =
+                        Self::parse_single_request(current_name.take(), &current_lines)
+                    {
                         requests.push(req);
                     }
                     current_lines.clear();
@@ -56,7 +58,10 @@ impl HttpFileParser {
     }
 
     fn parse_single_request(name: Option<String>, lines: &[String]) -> Option<HttpRequest> {
-        let mut iter = lines.iter().map(|l| l.trim()).filter(|l| !l.is_empty() && !l.starts_with('#'));
+        let mut iter = lines
+            .iter()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty() && !l.starts_with('#'));
 
         // First non-comment, non-empty line must be: METHOD URL (e.g. GET https://...)
         let request_line = iter.next()?;
@@ -74,7 +79,10 @@ impl HttpFileParser {
                 if trimmed.is_empty() {
                     // Empty line separates headers from body
                     reading_body = true;
-                } else if trimmed.contains(':') && !trimmed.starts_with("http") && !trimmed.starts_with('#') {
+                } else if trimmed.contains(':')
+                    && !trimmed.starts_with("http")
+                    && !trimmed.starts_with('#')
+                {
                     if let Some((k, v)) = trimmed.split_once(':') {
                         headers.insert(k.trim().to_string(), v.trim().to_string());
                     }
@@ -115,7 +123,9 @@ impl HttpFileParser {
 
         cmd.arg(&req.url);
 
-        let output = cmd.output().map_err(|e| format!("curl execution failed: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("curl execution failed: {}", e))?;
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
 
         let raw = String::from_utf8_lossy(&output.stdout);

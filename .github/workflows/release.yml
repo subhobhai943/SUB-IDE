@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: sub-ide-linux-x86_64
+            bundle: deb
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: sub-ide-windows-x86_64
+            bundle: msi
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: sub-ide-macos-x86_64
+            bundle: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Install cargo-deb (Linux)
+        if: matrix.bundle == 'deb'
+        run: cargo install cargo-deb --locked || true
+
+      - name: Build .deb (Linux)
+        if: matrix.bundle == 'deb'
+        run: cargo deb --target ${{ matrix.target }}
+
+      - name: Install cargo-wix (Windows)
+        if: matrix.bundle == 'msi'
+        run: cargo install cargo-wix --locked || true
+
+      - name: Build .msi (Windows)
+        if: matrix.bundle == 'msi'
+        run: cargo wix --target ${{ matrix.target }} || true
+
+      - name: Install cargo-bundle (macOS)
+        if: matrix.bundle == 'app'
+        run: cargo install cargo-bundle --locked || true
+
+      - name: Build .app (macOS)
+        if: matrix.bundle == 'app'
+        run: cargo bundle --release --target ${{ matrix.target }} || true
+
+      - name: Zip macOS app
+        if: matrix.bundle == 'app'
+        run: |
+          cd target/${{ matrix.target }}/release/bundle/osx 2>/dev/null || cd target/release/bundle/osx
+          zip -r ../../../../../${{ matrix.artifact }}.zip *.app || true
+
+      - name: Upload artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/${{ matrix.target }}/release/sub-ide*
+            target/debian/*.deb
+            target/wix/*.msi
+            target/${{ matrix.target }}/release/bundle/osx/*.app
+            ${{ matrix.artifact }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

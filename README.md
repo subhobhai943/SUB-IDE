@@ -43,7 +43,29 @@ cd /home/subhobhai943/Github/SUB-IDE
 cargo run
 ```
 
-### Run All Unit Tests:
+### Cross-Platform Build & Run
+
+Prerequisites:
+- Rust toolchain (rustup) with cargo
+- Python 3 (python3 on Linux/macOS, python on Windows)
+- Optional: gcc/g++/rustc/go/node for the multi-language runner
+
+Build:
 ```bash
-cargo test
+cargo build --release
 ```
+
+Run (native desktop GUI):
+```bash
+cargo run --release
+```
+
+Run (headless/CLI verification):
+```bash
+cargo run --release -- --cli
+```
+
+Notes:
+- On Linux/macOS the GUI requires an X11/Wayland display (or run with --cli).
+- On Windows, use a terminal with the MSVC or GNU toolchain; Python is invoked as `python`.
+- All hardcoded user paths have been removed; workspace is auto-detected from the current directory.

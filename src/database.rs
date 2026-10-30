@@ -62,12 +62,19 @@ impl DatabaseDiagram {
         let mut out = String::new();
         out.push_str("┌─── PyCharm Database Tools: Visual ER Diagram ──────────────────────┐\n");
         for node in &self.nodes {
-            out.push_str(&format!("│ [Table: {}] cols: {}\n", node.table_name, node.columns.join(", ")));
+            out.push_str(&format!(
+                "│ [Table: {}] cols: {}\n",
+                node.table_name,
+                node.columns.join(", ")
+            ));
         }
         if !self.edges.is_empty() {
             out.push_str("│ ── Foreign Key Relations ──────────────────────────────────────────\n");
             for edge in &self.edges {
-                out.push_str(&format!("│  └─> {}.{} ===> {}.{}\n", edge.from_table, edge.from_column, edge.to_table, edge.to_column));
+                out.push_str(&format!(
+                    "│  └─> {}.{} ===> {}.{}\n",
+                    edge.from_table, edge.from_column, edge.to_table, edge.to_column
+                ));
             }
         }
         out.push_str("└────────────────────────────────────────────────────────────────────┘\n");
@@ -136,14 +143,22 @@ impl DatabaseManager {
             if trimmed.to_uppercase().starts_with("CREATE TABLE") {
                 if let Some(open_paren) = trimmed.find('(') {
                     let header = trimmed[12..open_paren].trim().trim_matches('"');
-                    let table_name = header.split_whitespace().last().unwrap_or(header).to_string();
+                    let table_name = header
+                        .split_whitespace()
+                        .last()
+                        .unwrap_or(header)
+                        .to_string();
 
-                    let body = &trimmed[open_paren + 1..trimmed.rfind(')').unwrap_or(trimmed.len())];
+                    let body =
+                        &trimmed[open_paren + 1..trimmed.rfind(')').unwrap_or(trimmed.len())];
                     let mut cols = Vec::new();
 
                     for col_def in body.split(',') {
                         let c_trim = col_def.trim();
-                        if c_trim.is_empty() || c_trim.to_uppercase().starts_with("PRIMARY KEY") || c_trim.to_uppercase().starts_with("CONSTRAINT") {
+                        if c_trim.is_empty()
+                            || c_trim.to_uppercase().starts_with("PRIMARY KEY")
+                            || c_trim.to_uppercase().starts_with("CONSTRAINT")
+                        {
                             continue;
                         }
 
@@ -181,13 +196,17 @@ impl DatabaseManager {
         let mut edges = Vec::new();
 
         for (name, table) in &self.tables {
-            let col_names = table.columns.iter().map(|c| {
-                if c.is_primary_key {
-                    format!("{} (PK)", c.name)
-                } else {
-                    c.name.clone()
-                }
-            }).collect();
+            let col_names = table
+                .columns
+                .iter()
+                .map(|c| {
+                    if c.is_primary_key {
+                        format!("{} (PK)", c.name)
+                    } else {
+                        c.name.clone()
+                    }
+                })
+                .collect();
 
             nodes.push(DiagramTableNode {
                 id: name.clone(),
@@ -272,10 +291,24 @@ impl DatabaseManager {
                     let val: serde_json::Value = serde_json::from_str(json_str.trim())
                         .map_err(|e| format!("Failed to parse query output: {}", e))?;
 
-                    let cols: Vec<String> = val["columns"].as_array().unwrap_or(&vec![]).iter().map(|v| v.as_str().unwrap_or("").to_string()).collect();
-                    let rws: Vec<Vec<String>> = val["rows"].as_array().unwrap_or(&vec![]).iter().map(|r| {
-                        r.as_array().unwrap_or(&vec![]).iter().map(|c| c.as_str().unwrap_or("").to_string()).collect()
-                    }).collect();
+                    let cols: Vec<String> = val["columns"]
+                        .as_array()
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .map(|v| v.as_str().unwrap_or("").to_string())
+                        .collect();
+                    let rws: Vec<Vec<String>> = val["rows"]
+                        .as_array()
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .map(|r| {
+                            r.as_array()
+                                .unwrap_or(&vec![])
+                                .iter()
+                                .map(|c| c.as_str().unwrap_or("").to_string())
+                                .collect()
+                        })
+                        .collect();
                     (cols, rws)
                 }
             };

@@ -146,7 +146,7 @@ impl GitRepository {
         let output = Command::new("git")
             .arg("-C")
             .arg(&self.root_dir)
-            .args(&["status", "--porcelain=v1"])
+            .args(["status", "--porcelain=v1"])
             .output()
             .map_err(|e| format!("Failed to run git: {}", e))?;
 
@@ -162,7 +162,7 @@ impl GitRepository {
         let output = Command::new("git")
             .arg("-C")
             .arg(&self.root_dir)
-            .args(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
             .output()
             .map_err(|e| format!("Failed to run git: {}", e))?;
 
@@ -199,7 +199,10 @@ impl GitRepository {
                         author_name: std::mem::take(&mut current_author),
                         author_email: std::mem::take(&mut current_email),
                         date: std::mem::take(&mut current_date),
-                        message: std::mem::take(&mut current_msg).join("\n").trim().to_string(),
+                        message: std::mem::take(&mut current_msg)
+                            .join("\n")
+                            .trim()
+                            .to_string(),
                         parents: std::mem::take(&mut current_parents),
                     });
                 }
@@ -251,11 +254,17 @@ impl GitRepository {
         if !self.is_git_repo() {
             return Ok(Vec::new());
         }
-        let format = "COMMIT %H%nPARENTS %P%nAUTHOR %an%nEMAIL %ae%nDATE %ad%nMSG_START%n%B%nMSG_END";
+        let format =
+            "COMMIT %H%nPARENTS %P%nAUTHOR %an%nEMAIL %ae%nDATE %ad%nMSG_START%n%B%nMSG_END";
         let output = Command::new("git")
             .arg("-C")
             .arg(&self.root_dir)
-            .args(&["log", &format!("-n{}", max_count), &format!("--pretty=format:{}", format), "--date=short"])
+            .args([
+                "log",
+                &format!("-n{}", max_count),
+                &format!("--pretty=format:{}", format),
+                "--date=short",
+            ])
             .output()
             .map_err(|e| format!("Failed to run git: {}", e))?;
 
@@ -275,7 +284,9 @@ impl GitRepository {
                 branch_symbol, c.short_hash, summary, c.author_name, c.date
             ));
             if i + 1 < commits.len() {
-                out.push_str("│ |                                                               │\n");
+                out.push_str(
+                    "│ |                                                               │\n",
+                );
             }
         }
         out.push_str("└─────────────────────────────────────────────────────────────────┘\n");
@@ -334,8 +345,14 @@ MSG_END";
         assert_eq!(commits.len(), 2);
         assert_eq!(commits[0].short_hash, "6b00bc3");
         assert_eq!(commits[0].author_name, "JetBrains Team");
-        assert_eq!(commits[0].message, "Implement Rust launcher and fsnotifier integration");
-        assert_eq!(commits[0].parents, vec!["25ef9e3d85d934b27d9dada2f9dd52b1dc63bb04"]);
+        assert_eq!(
+            commits[0].message,
+            "Implement Rust launcher and fsnotifier integration"
+        );
+        assert_eq!(
+            commits[0].parents,
+            vec!["25ef9e3d85d934b27d9dada2f9dd52b1dc63bb04"]
+        );
 
         let dag = GitRepository::render_ascii_dag(&commits);
         assert!(dag.contains("* (HEAD) [6b00bc3]"));

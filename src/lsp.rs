@@ -40,7 +40,11 @@ pub struct LspManager {
 
 /// Helper to walk directory tree up to find enclosing Cargo.toml
 fn find_cargo_dir(path: &Path) -> Option<PathBuf> {
-    let mut curr = if path.is_file() { path.parent() } else { Some(path) };
+    let mut curr = if path.is_file() {
+        path.parent()
+    } else {
+        Some(path)
+    };
     while let Some(dir) = curr {
         if dir.join("Cargo.toml").exists() {
             return Some(dir.to_path_buf());
@@ -83,10 +87,36 @@ impl LspManager {
                 .or_else(|| find_cargo_dir(workspace_dir))
                 .unwrap_or_else(|| workspace_dir.to_path_buf());
 
-            let cargo_bin = if std::path::Path::new("/home/subhobhai943/.cargo/bin/cargo").exists() {
-                "/home/subhobhai943/.cargo/bin/cargo"
-            } else {
-                "cargo"
+            let cargo_bin = {
+                let home = dirs::home_dir().unwrap_or_default();
+                let mut candidates = vec!["cargo".to_string()];
+                if cfg!(target_os = "windows") {
+                    candidates.push(
+                        home.join(".cargo")
+                            .join("bin")
+                            .join("cargo.exe")
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                } else {
+                    candidates.push(
+                        home.join(".cargo")
+                            .join("bin")
+                            .join("cargo")
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                }
+                candidates
+                    .into_iter()
+                    .find(|c| {
+                        std::process::Command::new(c)
+                            .arg("--version")
+                            .output()
+                            .map(|o| o.status.success())
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or_else(|| "cargo".to_string())
             };
 
             // Run cargo check with JSON output
@@ -101,14 +131,22 @@ impl LspManager {
                     if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
                         if val.get("reason").and_then(|r| r.as_str()) == Some("compiler-message") {
                             if let Some(msg) = val.get("message") {
-                                let level = msg.get("level").and_then(|l| l.as_str()).unwrap_or("warning");
+                                let level = msg
+                                    .get("level")
+                                    .and_then(|l| l.as_str())
+                                    .unwrap_or("warning");
                                 let severity = match level {
                                     "error" => DiagnosticSeverity::Error,
                                     "warning" => DiagnosticSeverity::Warning,
                                     _ => DiagnosticSeverity::Information,
                                 };
-                                let text = msg.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
-                                let code = msg.get("code")
+                                let text = msg
+                                    .get("message")
+                                    .and_then(|m| m.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                                let code = msg
+                                    .get("code")
                                     .and_then(|c| c.get("code"))
                                     .and_then(|c| c.as_str())
                                     .map(|s| s.to_string());
@@ -118,10 +156,24 @@ impl LspManager {
                                 let mut span_file = file_path.to_path_buf();
 
                                 if let Some(spans) = msg.get("spans").and_then(|s| s.as_array()) {
-                                    if let Some(first_span) = spans.iter().find(|s| s.get("is_primary").and_then(|p| p.as_bool()).unwrap_or(false)) {
-                                        line_num = first_span.get("line_start").and_then(|l| l.as_u64()).unwrap_or(1) as usize;
-                                        col_num = first_span.get("column_start").and_then(|c| c.as_u64()).unwrap_or(1) as usize;
-                                        if let Some(f) = first_span.get("file_name").and_then(|f| f.as_str()) {
+                                    if let Some(first_span) = spans.iter().find(|s| {
+                                        s.get("is_primary")
+                                            .and_then(|p| p.as_bool())
+                                            .unwrap_or(false)
+                                    }) {
+                                        line_num = first_span
+                                            .get("line_start")
+                                            .and_then(|l| l.as_u64())
+                                            .unwrap_or(1)
+                                            as usize;
+                                        col_num = first_span
+                                            .get("column_start")
+                                            .and_then(|c| c.as_u64())
+                                            .unwrap_or(1)
+                                            as usize;
+                                        if let Some(f) =
+                                            first_span.get("file_name").and_then(|f| f.as_str())
+                                        {
                                             span_file = cargo_dir.join(f);
                                         }
                                     }
@@ -143,12 +195,19 @@ impl LspManager {
                     }
                 }
             }
-        } else if file_name.ends_with(".c") || file_name.ends_with(".h") || file_name.ends_with(".cpp") {
+        } else if file_name.ends_with(".c")
+            || file_name.ends_with(".h")
+            || file_name.ends_with(".cpp")
+        {
             // GCC / G++ syntax-only checking with JSON output
-            let compiler = if file_name.ends_with(".cpp") || file_name.ends_with(".cc") { "g++" } else { "gcc" };
+            let compiler = if file_name.ends_with(".cpp") || file_name.ends_with(".cc") {
+                "g++"
+            } else {
+                "gcc"
+            };
             let mut cmd = std::process::Command::new(compiler);
             cmd.args(["-fsyntax-only", "-fdiagnostics-format=json"]);
-            
+
             // Add include directories if present
             let inc1 = workspace_dir.join("include");
             if inc1.exists() {
@@ -163,7 +222,11 @@ impl LspManager {
             cmd.current_dir(workspace_dir);
 
             if let Ok(out) = cmd.output() {
-                let combined = if !out.stderr.is_empty() { &out.stderr } else { &out.stdout };
+                let combined = if !out.stderr.is_empty() {
+                    &out.stderr
+                } else {
+                    &out.stdout
+                };
                 if let Ok(parsed) = serde_json::from_slice::<Vec<serde_json::Value>>(combined) {
                     for item in parsed {
                         let kind = item.get("kind").and_then(|k| k.as_str()).unwrap_or("error");
@@ -174,15 +237,23 @@ impl LspManager {
                         } else {
                             DiagnosticSeverity::Information
                         };
-                        let message = item.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
+                        let message = item
+                            .get("message")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         let mut line_num = 1;
                         let mut col_num = 1;
 
                         if let Some(locs) = item.get("locations").and_then(|l| l.as_array()) {
                             if let Some(first_loc) = locs.first() {
                                 if let Some(caret) = first_loc.get("caret") {
-                                    line_num = caret.get("line").and_then(|l| l.as_u64()).unwrap_or(1) as usize;
-                                    col_num = caret.get("column").and_then(|c| c.as_u64()).unwrap_or(1) as usize;
+                                    line_num =
+                                        caret.get("line").and_then(|l| l.as_u64()).unwrap_or(1)
+                                            as usize;
+                                    col_num =
+                                        caret.get("column").and_then(|c| c.as_u64()).unwrap_or(1)
+                                            as usize;
                                 }
                             }
                         }
@@ -211,13 +282,22 @@ impl LspManager {
             if let Ok(out) = output {
                 if let Ok(parsed) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) {
                     for item in parsed {
-                        let code = item.get("code").and_then(|c| c.as_str()).map(|s| s.to_string());
-                        let message = item.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
-                        let row = item.get("location")
+                        let code = item
+                            .get("code")
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.to_string());
+                        let message = item
+                            .get("message")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let row = item
+                            .get("location")
                             .and_then(|l| l.get("row"))
                             .and_then(|r| r.as_u64())
                             .unwrap_or(1) as usize;
-                        let col = item.get("location")
+                        let col = item
+                            .get("location")
                             .and_then(|l| l.get("column"))
                             .and_then(|c| c.as_u64())
                             .unwrap_or(1) as usize;
@@ -236,7 +316,12 @@ impl LspManager {
             }
 
             // Also run python compile check for syntax errors
-            let py_check = std::process::Command::new("python3")
+            let py_cmd = if cfg!(target_os = "windows") {
+                "python"
+            } else {
+                "python3"
+            };
+            let py_check = std::process::Command::new(py_cmd)
                 .args(["-m", "py_compile"])
                 .arg(file_path)
                 .output();
@@ -249,7 +334,8 @@ impl LspManager {
                         if l.contains("line ") {
                             if let Some(idx) = l.find("line ") {
                                 let rest = &l[idx + 5..];
-                                let num_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                                let num_str: String =
+                                    rest.chars().take_while(|c| c.is_ascii_digit()).collect();
                                 if let Ok(n) = num_str.parse::<usize>() {
                                     err_line = n;
                                 }
@@ -287,8 +373,16 @@ impl LspManager {
                 ("async def", "Define coroutine function", "async def "),
                 ("await", "Await coroutine execution", "await "),
                 ("try", "Begin exception handling block", "try:\n    "),
-                ("except", "Catch exception clause", "except Exception as e:\n    "),
-                ("if __name__ == '__main__':", "Standard module execution guard", "if __name__ == '__main__':\n    "),
+                (
+                    "except",
+                    "Catch exception clause",
+                    "except Exception as e:\n    ",
+                ),
+                (
+                    "if __name__ == '__main__':",
+                    "Standard module execution guard",
+                    "if __name__ == '__main__':\n    ",
+                ),
             ];
             for (kw, detail, ins) in py_keywords {
                 if kw.to_lowercase().starts_with(&prefix_lower) || prefix.is_empty() {
@@ -305,9 +399,17 @@ impl LspManager {
                 ("print", "print(*values, sep=' ', end='\\n')", "print("),
                 ("len", "len(s) -> integer length", "len("),
                 ("range", "range(stop) or range(start, stop)", "range("),
-                ("isinstance", "isinstance(object, classinfo) -> bool", "isinstance("),
+                (
+                    "isinstance",
+                    "isinstance(object, classinfo) -> bool",
+                    "isinstance(",
+                ),
                 ("enumerate", "enumerate(iterable, start=0)", "enumerate("),
-                ("datetime", "datetime.datetime.now()", "datetime.datetime.now()"),
+                (
+                    "datetime",
+                    "datetime.datetime.now()",
+                    "datetime.datetime.now()",
+                ),
             ];
             for (bi, detail, ins) in py_builtins {
                 if bi.to_lowercase().starts_with(&prefix_lower) || prefix.is_empty() {
@@ -328,7 +430,11 @@ impl LspManager {
                 ("match", "Pattern matching construct", "match "),
                 ("use", "Import module path into scope", "use "),
                 ("let mut", "Declare mutable variable", "let mut "),
-                ("println!", "Print formatted string to stdout", "println!(\"{}\", "),
+                (
+                    "println!",
+                    "Print formatted string to stdout",
+                    "println!(\"{}\", ",
+                ),
                 ("vec!", "Construct new vector collection", "vec!["),
                 ("Result", "Result<T, E> enum", "Result<"),
                 ("Option", "Option<T> enum (Some / None)", "Option<"),
@@ -346,6 +452,12 @@ impl LspManager {
         }
 
         list
+    }
+}
+
+impl Default for LspManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

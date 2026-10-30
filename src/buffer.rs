@@ -46,14 +46,8 @@ impl Selection {
 /// Represents an atomic edit operation for the Undo/Redo ledger.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EditOperation {
-    Insert {
-        offset: usize,
-        text: String,
-    },
-    Delete {
-        offset: usize,
-        deleted_text: String,
-    },
+    Insert { offset: usize, text: String },
+    Delete { offset: usize, deleted_text: String },
 }
 
 /// Text Buffer replicating the core of Fleet Andel / IntelliJ Editor:
@@ -209,7 +203,10 @@ impl EditorBuffer {
                 EditOperation::Insert { offset, text } => {
                     self.text.insert_str(offset, &text);
                     self.recompute_line_starts();
-                    self.undo_stack.push(EditOperation::Insert { offset, text });
+                    self.undo_stack.push(EditOperation::Delete {
+                        offset,
+                        deleted_text: text,
+                    });
                 }
                 EditOperation::Delete {
                     offset,
@@ -218,9 +215,9 @@ impl EditorBuffer {
                     let end = offset + deleted_text.len();
                     self.text.replace_range(offset..end, "");
                     self.recompute_line_starts();
-                    self.undo_stack.push(EditOperation::Delete {
+                    self.undo_stack.push(EditOperation::Insert {
                         offset,
-                        deleted_text,
+                        text: deleted_text,
                     });
                 }
             }

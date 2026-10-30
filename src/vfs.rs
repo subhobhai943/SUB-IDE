@@ -120,7 +120,9 @@ impl VirtualFileSystem {
 
     /// Find a VirtualFile by its path
     pub fn find_file<P: AsRef<Path>>(&self, path: P) -> Option<&VirtualFile> {
-        self.path_to_id.get(path.as_ref()).and_then(|id| self.nodes.get(id))
+        self.path_to_id
+            .get(path.as_ref())
+            .and_then(|id| self.nodes.get(id))
     }
 
     /// Find a VirtualFile by its ID
@@ -137,7 +139,9 @@ impl VirtualFileSystem {
     pub fn find_all_python_files(&self) -> Vec<&VirtualFile> {
         self.nodes
             .values()
-            .filter(|f| !f.is_directory && f.path.extension().and_then(|e| e.to_str()) == Some("py"))
+            .filter(|f| {
+                !f.is_directory && f.path.extension().and_then(|e| e.to_str()) == Some("py")
+            })
             .collect()
     }
 
@@ -212,5 +216,11 @@ impl VirtualFileSystem {
         }
         cmd.push_str("#\n");
         cmd
+    }
+}
+
+impl Default for VirtualFileSystem {
+    fn default() -> Self {
+        Self::new()
     }
 }
