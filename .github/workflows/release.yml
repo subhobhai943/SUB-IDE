@@ -50,7 +50,9 @@ jobs:
         run: cargo install cargo-wix --locked
       - name: Build .msi (Windows)
         if: runner.os == 'Windows'
-        run: cargo wix --no-build
+        run: |
+          if (-not (Test-Path wix/main.wxs)) { cargo wix init }
+          cargo wix --no-build
 
       # ---------- macOS: .app ----------
       - name: Install cargo-bundle (macOS)
